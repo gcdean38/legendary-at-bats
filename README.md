@@ -13,6 +13,10 @@ npm run dev
 
 Open [http://127.0.0.1:3847](http://127.0.0.1:3847).
 
+**Live (GitHub Pages):** [https://gcdean38.github.io/legendary-at-bats/](https://gcdean38.github.io/legendary-at-bats/)
+
+Branch flow: work on `dev` → merge request into `prod` (Pages deploys from `prod`).
+
 ## What’s in the MVP
 
 - Curated catalog of legendary at-bats (~2016–2026), mixing hero moments and failures
