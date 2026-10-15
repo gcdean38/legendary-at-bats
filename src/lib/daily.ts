@@ -45,16 +45,16 @@ const VERDICT_SHARE: Record<HistoryVerdict, string> = {
 export function formatShareSummary(opts: {
   dateKey: string;
   codename: string;
-  score: number;
-  maxScore: number;
   stars: number;
   verdict: HistoryVerdict;
+  endingTitle?: string;
 }): string {
   const starLine = "★".repeat(opts.stars) + "☆".repeat(3 - opts.stars);
   return [
     `Legendary At Bats — ${opts.dateKey}`,
     `${opts.codename}`,
-    `${starLine}  ${opts.score}/${opts.maxScore}`,
+    starLine,
+    opts.endingTitle ?? VERDICT_SHARE[opts.verdict],
     VERDICT_SHARE[opts.verdict],
     "Play today’s at-bat.",
   ].join("\n");

@@ -10,6 +10,7 @@ import type {
   AtBatSessionResult,
   BasesState,
   CountState,
+  EndingTone,
   ExitKind,
   HistoryVerdict,
   LegendaryAtBat,
@@ -30,37 +31,28 @@ export const PITCH_TYPES: { id: PitchType; label: string }[] = [
   { id: "CT", label: "Cutter" },
 ];
 
-export const POINTS = {
-  decision: 35,
-  aim: 40,
-  timing: 25,
-} as const;
-
-export const CAME_THROUGH_RATIO = 0.6;
-
-export function maxScoreForPitchCount(count: number): number {
-  return count * (POINTS.decision + POINTS.aim + POINTS.timing);
-}
-
 export function zoneDistance(a: ZoneCoord, b: ZoneCoord): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-export function aimScoreFromDistance(distance: number): number {
-  const normalized = Math.min(1, distance / 0.45);
-  return Math.round(POINTS.aim * (1 - normalized));
-}
-
-export function timingScoreFromElapsed(
-  elapsedMs: number,
-  windowMs: number,
-): number {
-  if (windowMs <= 0) return 0;
-  const ideal = windowMs * 0.82;
-  const delta = Math.abs(elapsedMs - ideal);
-  const tolerance = windowMs * 0.35;
-  const ratio = Math.min(1, delta / tolerance);
-  return Math.round(POINTS.timing * (1 - ratio));
+/**
+ * Outcome stars — no pitch points.
+ * 3 = won the game · 2 = came through / pass the baton · 1 = failed
+ */
+export function starsFromEnding(tone: EndingTone): number {
+  switch (tone) {
+    case "won_game":
+      return 3;
+    case "took_lead":
+    case "tied_game":
+    case "scored_continue":
+    case "pass_the_baton":
+      return 2;
+    case "failed_hope":
+    case "failed_lost":
+    default:
+      return 1;
+  }
 }
 
 export function gradePitch(opts: {
@@ -81,8 +73,6 @@ export function gradePitch(opts: {
   const decisionCorrect = swung ? inZone : !inZone;
 
   let aimDistance: number | undefined;
-  let aimPts = 0;
-  let timingPts = 0;
   let exitKind: ExitKind = "take";
   let play: PlayResult = "ball";
   let launchDeg: number | undefined;
@@ -92,8 +82,6 @@ export function gradePitch(opts: {
 
   if (swung && opts.aim) {
     aimDistance = zoneDistance(opts.aim, opts.pitch.location);
-    aimPts = aimScoreFromDistance(aimDistance);
-    timingPts = timingScoreFromElapsed(opts.timingMs ?? 0, opts.windowMs);
 
     const contact = estimateContact({
       pitchLoc: opts.pitch.location,
@@ -118,15 +106,8 @@ export function gradePitch(opts: {
       play = "ball";
       event = "ball";
     }
-    if (decisionCorrect) {
-      aimPts = POINTS.aim;
-      timingPts = POINTS.timing;
-    }
     exitKind = "take";
   }
-
-  const pitchScore =
-    (decisionCorrect ? POINTS.decision : 0) + aimPts + timingPts;
 
   return {
     pitchId: opts.pitch.id,
@@ -136,8 +117,8 @@ export function gradePitch(opts: {
     aim: opts.aim,
     aimDistance,
     timingMs: opts.timingMs,
-    timingScore: timingPts,
-    pitchScore,
+    timingScore: 0,
+    pitchScore: 0,
     exitKind,
     event,
     play,
@@ -164,11 +145,6 @@ export function finalizeSession(opts: {
   endReason: AtBatEndReason;
   finalCount: CountState;
 }): AtBatSessionResult {
-  const totalScore = opts.grades.reduce((s, g) => s + g.pitchScore, 0);
-  const maxScore = maxScoreForPitchCount(Math.max(1, opts.grades.length));
-  const ratio = maxScore === 0 ? 0 : totalScore / maxScore;
-  const stars = ratio >= 0.85 ? 3 : ratio >= 0.6 ? 2 : ratio >= 0.35 ? 1 : 0;
-
   const last = opts.grades[opts.grades.length - 1];
   let finalPlay: PlayResult = last?.play ?? "strikeout";
   if (opts.endReason === "walk") finalPlay = "walk";
@@ -189,6 +165,7 @@ export function finalizeSession(opts: {
     runsScored: runs,
   });
 
+  const stars = starsFromEnding(narrative.tone);
   const historyVerdict = resolveHistoryVerdict(
     opts.atBat,
     narrative.playerCameThrough,
@@ -209,8 +186,8 @@ export function finalizeSession(opts: {
     atBatId: opts.atBat.id,
     dateKey: opts.dateKey,
     grades: opts.grades,
-    totalScore,
-    maxScore,
+    totalScore: stars,
+    maxScore: 3,
     stars,
     historyVerdict,
     playerCameThrough: narrative.playerCameThrough,

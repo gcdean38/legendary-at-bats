@@ -321,10 +321,9 @@ export function DailyGame() {
     const text = formatShareSummary({
       dateKey: session.dateKey,
       codename: atBat.codename,
-      score: session.totalScore,
-      maxScore: session.maxScore,
       stars: session.stars,
       verdict: session.historyVerdict,
+      endingTitle: session.endingTitle,
     });
     try {
       if (navigator.clipboard?.writeText) {
@@ -829,17 +828,14 @@ function PitchScreen({
             <p className="text-center text-sm italic text-foreground/90">
               “{pitch.approachCue}”
             </p>
-            <p className="font-[family-name:var(--font-display)] text-2xl tracking-wide text-primary">
-              +{lastGrade.pitchScore} pts
-            </p>
             <p
               className={cn(
-                "text-sm font-medium",
+                "font-[family-name:var(--font-display)] text-2xl tracking-wide",
                 lastGrade.event === "out"
                   ? "text-destructive"
                   : lastGrade.event === "hit"
                     ? "text-flood"
-                    : "text-foreground",
+                    : "text-primary",
               )}
             >
               {playResultLabel(lastGrade.play)}
@@ -923,11 +919,17 @@ function ResultScreen({
   const shareText = formatShareSummary({
     dateKey: session.dateKey,
     codename: atBat.codename,
-    score: session.totalScore,
-    maxScore: session.maxScore,
     stars: session.stars,
     verdict: session.historyVerdict,
+    endingTitle: session.endingTitle,
   });
+
+  const starsBlurb =
+    session.stars >= 3
+      ? "Won the game"
+      : session.stars === 2
+        ? "Came through · pass the baton"
+        : "Failed the moment";
 
   return (
     <section className="anim-rise flex min-h-[85dvh] flex-col gap-6 py-4">
@@ -963,18 +965,13 @@ function ResultScreen({
       </div>
 
       <div className="rounded-md bg-secondary/50 p-5 text-center">
-        <p className="font-[family-name:var(--font-display)] text-4xl text-primary">
+        <p className="font-[family-name:var(--font-display)] text-5xl text-primary">
           {"★".repeat(session.stars)}
           {"☆".repeat(3 - session.stars)}
         </p>
-        <p className="mt-2 text-2xl font-semibold tabular-nums">
-          {session.totalScore}
-          <span className="text-base text-muted-foreground">
-            /{session.maxScore}
-          </span>
-        </p>
+        <p className="mt-2 text-sm font-medium text-foreground">{starsBlurb}</p>
         <p className="mt-1 text-xs uppercase tracking-[0.2em] text-muted-foreground">
-          {pending ? "Finalizing…" : "Score"}
+          {pending ? "Finalizing…" : "3 win · 2 came through · 1 failed"}
         </p>
       </div>
 
@@ -1007,7 +1004,9 @@ function ResultScreen({
                 P{i + 1} · {playResultLabel(g.play)}
                 {g.launchDeg != null && g.swung ? ` · ~${g.launchDeg}°` : ""}
               </span>
-              <span className="tabular-nums text-primary">+{g.pitchScore}</span>
+              <span className="text-xs text-muted-foreground">
+                {g.decisionCorrect ? "read ✓" : "miss"}
+              </span>
             </li>
           ))}
         </ul>
