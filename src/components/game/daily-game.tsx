@@ -95,12 +95,11 @@ export function DailyGame() {
     };
   }, []);
 
-  // 3–2–1 grow/fade: before first pitch (windup) and between pitches.
+  // 3–2–1 grow/fade: windup, between pitches, and after the terminating pitch.
   useEffect(() => {
-    const betweenPitches =
-      phase === "pitch_result" && !abEnding && !!lastGrade;
+    const afterAnyPitch = phase === "pitch_result" && !!lastGrade;
     const firstOrNextWindup = phase === "pitch_windup";
-    if (!betweenPitches && !firstOrNextWindup) {
+    if (!afterAnyPitch && !firstOrNextWindup) {
       cancelContinueTimer();
       return;
     }
@@ -776,7 +775,7 @@ function PitchScreen({
           onAim={onAim}
           startedAt={flightStart}
         />
-        {(windup || (!live && !abEnding)) &&
+        {(windup || !live) &&
           continueInSec != null &&
           continueInSec >= 1 && (
             <div
@@ -881,24 +880,18 @@ function PitchScreen({
               )}
               <li className="text-xs">{eventLabel(lastGrade.event)}</li>
             </ul>
-            {abEnding ? (
-              <Button className="w-full" onClick={onContinue}>
-                See the result
+            <div className="space-y-2">
+              <p className="text-center text-xs uppercase tracking-[0.22em] text-muted-foreground">
+                {abEnding ? "Result" : "Next pitch"}
+              </p>
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={onContinue}
+              >
+                Skip wait
               </Button>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-center text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                  Next pitch
-                </p>
-                <Button
-                  variant="secondary"
-                  className="w-full"
-                  onClick={onContinue}
-                >
-                  Skip wait
-                </Button>
-              </div>
-            )}
+            </div>
           </div>
         )}
       </div>
