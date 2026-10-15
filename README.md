@@ -1,6 +1,6 @@
 # Legendary At Bats
 
-Daily browser game: step into legendary MLB playoff at-bats as the batter. Recognize the pitch, decide take or swing, aim the strike zone — then see whether you **matched the legend** or **changed history**.
+Daily browser game: step into legendary MLB playoff at-bats as the batter. Watch the pitch come in, **take or swing where you think it’s going**, work the full count — then see whether you **matched the legend** or **changed history**.
 
 Identity is always **team + jersey #** (e.g. Toronto #4). No real player names.
 
@@ -17,8 +17,9 @@ Open [http://127.0.0.1:3847](http://127.0.0.1:3847).
 
 - Curated catalog of legendary at-bats (~2016–2026), mixing hero moments and failures
 - Deterministic daily pick by UTC date (same AB for everyone that day)
-- Pitch loop: approach cue → pitch recognition → take/swing → zone click + timing if swinging
-- End reveal: historical outcome + history verdict (changed history / matched legend / history held / fell short)
+- Live score bug with location abbrs (e.g. ARI 5 · TEX 5) and B/S/O dots
+- Pitch loop: flight → take **or** click the plate (zone + chase) → count updates; fouls recycle the pitch pool
+- Exit look on contact; end reveal with history verdict
 - Shareable score summary
 
 ## Stack

@@ -1,10 +1,22 @@
+import { estimateContact } from "@/lib/contact";
+import { isInStrikeZone } from "@/lib/zone";
+import {
+  applyBaserunning,
+  batterIsHome,
+  resolveEndingNarrative,
+} from "@/lib/situation";
 import type {
+  AtBatEndReason,
   AtBatSessionResult,
+  BasesState,
+  CountState,
+  ExitKind,
   HistoryVerdict,
   LegendaryAtBat,
   PitchDecision,
   PitchResultGrade,
   PitchType,
+  PlayResult,
   SeedPitch,
   ZoneCoord,
 } from "@/lib/types";
@@ -19,23 +31,19 @@ export const PITCH_TYPES: { id: PitchType; label: string }[] = [
 ];
 
 export const POINTS = {
-  type: 25,
-  decision: 25,
-  aim: 30,
-  timing: 20,
+  decision: 35,
+  aim: 40,
+  timing: 25,
 } as const;
 
-/** Score ratio that counts as "coming through" on the at-bat */
 export const CAME_THROUGH_RATIO = 0.6;
 
 export function maxScoreForPitchCount(count: number): number {
-  return count * (POINTS.type + POINTS.decision + POINTS.aim + POINTS.timing);
+  return count * (POINTS.decision + POINTS.aim + POINTS.timing);
 }
 
 export function zoneDistance(a: ZoneCoord, b: ZoneCoord): number {
-  const dx = a.x - b.x;
-  const dy = a.y - b.y;
-  return Math.hypot(dx, dy);
+  return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
 export function aimScoreFromDistance(distance: number): number {
@@ -57,39 +65,66 @@ export function timingScoreFromElapsed(
 
 export function gradePitch(opts: {
   pitch: SeedPitch;
-  recognizedType: PitchType | null;
   decision: PitchDecision;
   aim?: ZoneCoord;
   timingMs?: number;
   windowMs: number;
+  bases: BasesState;
+  outs: number;
 }): PitchResultGrade {
-  const typeCorrect = opts.recognizedType === opts.pitch.type;
-  const decisionCorrect = opts.decision === opts.pitch.expectedDecision;
+  const inZone = isInStrikeZone(opts.pitch.location);
   const swung = opts.decision === "swing";
+  // Zone is the source of truth: swing at strikes, take balls.
+  // Seeded expectedDecision is only a soft hint for pitch design, not a quiz answer.
+  const decisionCorrect = swung ? inZone : !inZone;
 
   let aimDistance: number | undefined;
   let aimPts = 0;
   let timingPts = 0;
+  let exitKind: ExitKind = "take";
+  let play: PlayResult = "ball";
+  let launchDeg: number | undefined;
+  let contactQuality: number | undefined;
+  let event: PitchResultGrade["event"] = "ball";
 
   if (swung && opts.aim) {
     aimDistance = zoneDistance(opts.aim, opts.pitch.location);
     aimPts = aimScoreFromDistance(aimDistance);
     timingPts = timingScoreFromElapsed(opts.timingMs ?? 0, opts.windowMs);
-  } else if (!swung && decisionCorrect) {
-    aimPts = POINTS.aim;
-    timingPts = POINTS.timing;
+
+    const contact = estimateContact({
+      pitchLoc: opts.pitch.location,
+      aim: opts.aim,
+      timingMs: opts.timingMs ?? 0,
+      windowMs: opts.windowMs,
+      bases: opts.bases,
+      outs: opts.outs,
+    });
+    exitKind = contact.exitKind;
+    play = contact.play;
+    launchDeg = contact.launchDeg;
+    contactQuality = contact.quality;
+    event = contact.event;
+  } else if (!swung) {
+    if (inZone) {
+      play = "strike_looking";
+      event = "strike";
+    } else {
+      play = "ball";
+      event = "ball";
+    }
+    if (decisionCorrect) {
+      aimPts = POINTS.aim;
+      timingPts = POINTS.timing;
+    }
+    exitKind = "take";
   }
 
   const pitchScore =
-    (typeCorrect ? POINTS.type : 0) +
-    (decisionCorrect ? POINTS.decision : 0) +
-    aimPts +
-    timingPts;
+    (decisionCorrect ? POINTS.decision : 0) + aimPts + timingPts;
 
   return {
     pitchId: opts.pitch.id,
-    recognizedType: opts.recognizedType,
-    typeCorrect,
     decision: opts.decision,
     decisionCorrect,
     swung,
@@ -98,48 +133,70 @@ export function gradePitch(opts: {
     timingMs: opts.timingMs,
     timingScore: timingPts,
     pitchScore,
+    exitKind,
+    event,
+    play,
+    launchDeg,
+    contactQuality,
   };
 }
 
-/**
- * Compare player performance to the historical outcome.
- * Failed ABs are intentional: high score = changed history.
- */
 export function resolveHistoryVerdict(
   atBat: LegendaryAtBat,
-  totalScore: number,
-  maxScore: number,
-): { verdict: HistoryVerdict; playerCameThrough: boolean } {
-  const ratio = maxScore === 0 ? 0 : totalScore / maxScore;
-  const playerCameThrough = ratio >= CAME_THROUGH_RATIO;
-
+  playerCameThrough: boolean,
+): HistoryVerdict {
   if (!atBat.historical.batterSucceeded) {
-    if (playerCameThrough) {
-      return { verdict: "changed_history", playerCameThrough };
-    }
-    return { verdict: "history_held", playerCameThrough };
+    return playerCameThrough ? "changed_history" : "history_held";
   }
-
-  if (playerCameThrough) {
-    return { verdict: "matched_legend", playerCameThrough };
-  }
-  return { verdict: "fell_short", playerCameThrough };
+  return playerCameThrough ? "matched_legend" : "fell_short";
 }
 
 export function finalizeSession(opts: {
   atBat: LegendaryAtBat;
   dateKey: string;
   grades: PitchResultGrade[];
+  endReason: AtBatEndReason;
+  finalCount: CountState;
 }): AtBatSessionResult {
   const totalScore = opts.grades.reduce((s, g) => s + g.pitchScore, 0);
-  const maxScore = maxScoreForPitchCount(opts.grades.length);
+  const maxScore = maxScoreForPitchCount(Math.max(1, opts.grades.length));
   const ratio = maxScore === 0 ? 0 : totalScore / maxScore;
   const stars = ratio >= 0.85 ? 3 : ratio >= 0.6 ? 2 : ratio >= 0.35 ? 1 : 0;
-  const { verdict, playerCameThrough } = resolveHistoryVerdict(
-    opts.atBat,
-    totalScore,
-    maxScore,
+
+  const last = opts.grades[opts.grades.length - 1];
+  let finalPlay: PlayResult = last?.play ?? "strikeout";
+  if (opts.endReason === "walk") finalPlay = "walk";
+  if (opts.endReason === "strikeout") finalPlay = "strikeout";
+  if (opts.endReason === "max_pitches" && !last?.swung) {
+    finalPlay = "strikeout";
+  }
+
+  const { runs, bases: nextBases, batterOut } = applyBaserunning(
+    opts.atBat.bases,
+    finalPlay,
   );
+  const narrative = resolveEndingNarrative({
+    atBat: opts.atBat,
+    play: finalPlay,
+    endReason: opts.endReason,
+    runsScored: runs,
+  });
+
+  const historyVerdict = resolveHistoryVerdict(
+    opts.atBat,
+    narrative.playerCameThrough,
+  );
+
+  const isHome = batterIsHome(opts.atBat);
+  const away = {
+    ...opts.atBat.away,
+    runs: opts.atBat.away.runs + (isHome ? 0 : runs),
+  };
+  const home = {
+    ...opts.atBat.home,
+    runs: opts.atBat.home.runs + (isHome ? runs : 0),
+  };
+  const outs = Math.min(3, opts.atBat.outs + (batterOut ? 1 : 0));
 
   return {
     atBatId: opts.atBat.id,
@@ -148,9 +205,28 @@ export function finalizeSession(opts: {
     totalScore,
     maxScore,
     stars,
-    historyVerdict: verdict,
-    playerCameThrough,
+    historyVerdict,
+    playerCameThrough: narrative.playerCameThrough,
+    endReason: opts.endReason,
+    finalCount: opts.finalCount,
+    finalPlay,
+    endingTone: narrative.tone,
+    endingTitle: narrative.title,
+    endingBlurb: narrative.blurb,
+    runsScored: runs,
+    board: {
+      away,
+      home,
+      bases: nextBases,
+      outs,
+      // AB is over — clear the count on the bug
+      count: { balls: 0, strikes: 0 },
+    },
   };
+}
+
+export function pitchTypeLabel(type: PitchType): string {
+  return PITCH_TYPES.find((t) => t.id === type)?.label ?? type;
 }
 
 export function outcomeLabel(outcome: string): string {

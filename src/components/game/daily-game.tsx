@@ -3,55 +3,79 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { StrikeZone } from "@/components/game/strike-zone";
+import { ScoreBug } from "@/components/game/score-bug";
 import { LEGENDARY_AT_BATS } from "@/data/legendary-at-bats";
-import { getDailyAtBat, formatShareSummary } from "@/lib/daily";
+import { getDailyAtBat, formatShareSummary, utcDateKey } from "@/lib/daily";
+import { exitLabel } from "@/lib/flight";
+import { playResultLabel } from "@/lib/contact";
+import {
+  MAX_PITCHES_PER_AB,
+  applyPitchEvent,
+  eventLabel,
+  formatScoreLine,
+  pitchAtCursor,
+} from "@/lib/count";
 import {
   finalizeSession,
   gradePitch,
   outcomeLabel,
-  PITCH_TYPES,
-  verdictCopy,
+  pitchTypeLabel,
 } from "@/lib/scoring";
 import type {
+  AtBatEndReason,
   AtBatSessionResult,
+  CountState,
   GamePhase,
-  PitchDecision,
+  LegendaryAtBat,
   PitchResultGrade,
-  PitchType,
   ZoneCoord,
 } from "@/lib/types";
+import { isInStrikeZone } from "@/lib/zone";
 import { cn } from "@/lib/utils";
 
-const FLIGHT_MS = 1100;
-
-type DailyPick = ReturnType<typeof getDailyAtBat>;
+const FLIGHT_MS = 1400;
+const EXIT_MS = 720;
+const LATE_TAKE_GRACE_MS = 900;
 
 export function DailyGame() {
   const [phase, setPhase] = useState<GamePhase>("loading");
   const [error, setError] = useState<string | null>(null);
-  const [daily, setDaily] = useState<DailyPick | null>(null);
-  const [pitchIndex, setPitchIndex] = useState(0);
-  const [recognized, setRecognized] = useState<PitchType | null>(null);
+  const [atBat, setAtBat] = useState<LegendaryAtBat | null>(null);
+  const [dateKey, setDateKey] = useState("");
+  const [isDaily, setIsDaily] = useState(true);
+  const [pitchCursor, setPitchCursor] = useState(0);
+  const [count, setCount] = useState<CountState>({ balls: 0, strikes: 0 });
   const [grades, setGrades] = useState<PitchResultGrade[]>([]);
   const [lastGrade, setLastGrade] = useState<PitchResultGrade | null>(null);
   const [session, setSession] = useState<AtBatSessionResult | null>(null);
   const [aim, setAim] = useState<ZoneCoord | undefined>();
   const [ballProgress, setBallProgress] = useState(0);
+  const [exitProgress, setExitProgress] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [abEnding, setAbEnding] = useState(false);
   const [pending, startTransition] = useTransition();
   const flightStart = useRef(0);
   const rafRef = useRef<number | null>(null);
+  const decidedRef = useRef(false);
+  const gradesRef = useRef<PitchResultGrade[]>([]);
+  const countRef = useRef<CountState>({ balls: 0, strikes: 0 });
+  const cursorRef = useRef(0);
+  const pendingEndRef = useRef<AtBatEndReason | null>(null);
 
-  const atBat = daily?.atBat ?? null;
-  const dateKey = daily?.dateKey ?? "";
-  const currentPitch = atBat?.pitches[pitchIndex];
+  const currentPitch =
+    atBat && atBat.pitches.length > 0
+      ? pitchAtCursor(atBat.pitches, pitchCursor)
+      : null;
+  const recycled =
+    !!atBat && pitchCursor >= atBat.pitches.length && atBat.pitches.length > 0;
 
   useEffect(() => {
     try {
       const pick = getDailyAtBat(new Date());
-      setDaily(pick);
+      setAtBat(pick.atBat);
+      setDateKey(pick.dateKey);
+      setIsDaily(true);
       const t = window.setTimeout(() => setPhase("intro"), 400);
       return () => window.clearTimeout(t);
     } catch {
@@ -66,86 +90,173 @@ export function DailyGame() {
     };
   }, []);
 
+  function cancelFlight() {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+  }
+
   function startFlightLoop() {
+    cancelFlight();
     flightStart.current = performance.now();
     setBallProgress(0);
+    setExitProgress(0);
     const tick = (now: number) => {
       const p = Math.min(1, (now - flightStart.current) / FLIGHT_MS);
       setBallProgress(p);
-      if (p < 1) {
-        rafRef.current = requestAnimationFrame(tick);
-      }
+      if (p < 1) rafRef.current = requestAnimationFrame(tick);
+      else rafRef.current = null;
     };
     rafRef.current = requestAnimationFrame(tick);
   }
 
+  function startExitLoop() {
+    cancelFlight();
+    const start = performance.now();
+    setExitProgress(0.01);
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - start) / EXIT_MS);
+      setExitProgress(p);
+      if (p < 1) rafRef.current = requestAnimationFrame(tick);
+      else rafRef.current = null;
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  }
+
+  function resetBattleState() {
+    decidedRef.current = false;
+    gradesRef.current = [];
+    countRef.current = { balls: 0, strikes: 0 };
+    cursorRef.current = 0;
+    pendingEndRef.current = null;
+    setPitchCursor(0);
+    setCount({ balls: 0, strikes: 0 });
+    setGrades([]);
+    setLastGrade(null);
+    setSession(null);
+    setAim(undefined);
+    setBallProgress(0);
+    setExitProgress(0);
+    setAbEnding(false);
+    setCopied(false);
+  }
+
+  function selectAtBat(next: LegendaryAtBat, daily: boolean) {
+    cancelFlight();
+    resetBattleState();
+    setAtBat(next);
+    setIsDaily(daily);
+    setDateKey(daily ? utcDateKey(new Date()) : `practice · ${next.id}`);
+    setPhase("situation");
+  }
+
   function beginPitch() {
-    setRecognized(null);
+    decidedRef.current = false;
     setAim(undefined);
     setLastGrade(null);
     setBallProgress(0);
-    setPhase("pitch_cue");
-  }
-
-  function goRecognize() {
-    setPhase("pitch_recognize");
-  }
-
-  function pickType(type: PitchType) {
-    setRecognized(type);
-    setPhase("pitch_decide");
-  }
-
-  function decide(decision: PitchDecision) {
-    if (!currentPitch) return;
-    if (decision === "take") {
-      const grade = gradePitch({
-        pitch: currentPitch,
-        recognizedType: recognized,
-        decision,
-        windowMs: FLIGHT_MS,
-      });
-      commitPitchGrade(grade);
-      return;
-    }
-    setPhase("pitch_aim");
+    setExitProgress(0);
+    setAbEnding(false);
+    pendingEndRef.current = null;
+    setPhase("pitch_live");
     startFlightLoop();
   }
 
-  function onAim(coord: ZoneCoord, timingMs: number) {
-    if (!currentPitch || phase !== "pitch_aim") return;
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+  function commitPitchGrade(grade: PitchResultGrade, swingAim?: ZoneCoord) {
+    if (decidedRef.current) return;
+    decidedRef.current = true;
+    cancelFlight();
+    const nextGrades = [...gradesRef.current, grade];
+    gradesRef.current = nextGrades;
+    setGrades(nextGrades);
+    setLastGrade(grade);
+    if (swingAim) setAim(swingAim);
+
+    const applied = applyPitchEvent(countRef.current, grade.event);
+    countRef.current = applied.count;
+    setCount(applied.count);
+    const endReason = applied.ended
+      ? (applied.reason ?? "out")
+      : cursorRef.current + 1 >= MAX_PITCHES_PER_AB
+        ? "max_pitches"
+        : null;
+    pendingEndRef.current = endReason;
+    setAbEnding(endReason != null);
+
+    setBallProgress(1);
+    setPhase("pitch_result");
+    if (grade.swung && grade.play !== "foul") {
+      startExitLoop();
+    } else if (grade.swung && grade.play === "foul") {
+      startExitLoop();
+    } else {
+      setExitProgress(0);
+    }
+  }
+
+  function onTake() {
+    if (!currentPitch || !atBat || phase !== "pitch_live") return;
     const grade = gradePitch({
       pitch: currentPitch,
-      recognizedType: recognized,
+      decision: "take",
+      windowMs: FLIGHT_MS,
+      bases: atBat.bases,
+      outs: atBat.outs,
+    });
+    commitPitchGrade(grade);
+  }
+
+  function onAim(coord: ZoneCoord, timingMs: number) {
+    if (!currentPitch || !atBat || phase !== "pitch_live") return;
+    const grade = gradePitch({
+      pitch: currentPitch,
       decision: "swing",
       aim: coord,
       timingMs,
       windowMs: FLIGHT_MS,
+      bases: atBat.bases,
+      outs: atBat.outs,
     });
-    setAim(coord);
-    commitPitchGrade(grade);
+    commitPitchGrade(grade, coord);
   }
 
-  function commitPitchGrade(grade: PitchResultGrade) {
-    setLastGrade(grade);
-    const nextGrades = [...grades, grade];
-    setGrades(nextGrades);
-    setPhase("pitch_feedback");
-  }
+  useEffect(() => {
+    if (phase !== "pitch_live" || ballProgress < 1) return;
+    const t = window.setTimeout(() => {
+      if (!decidedRef.current) onTake();
+    }, LATE_TAKE_GRACE_MS);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, ballProgress, pitchCursor]);
 
-  function advanceAfterFeedback() {
+  function endAtBat(reason: AtBatEndReason, finalCount: CountState) {
     if (!atBat) return;
-    if (pitchIndex + 1 < atBat.pitches.length) {
-      setPitchIndex((i) => i + 1);
-      beginPitch();
-      return;
-    }
     startTransition(() => {
-      const final = finalizeSession({ atBat, dateKey, grades });
+      const final = finalizeSession({
+        atBat,
+        dateKey,
+        grades: gradesRef.current,
+        endReason: reason,
+        finalCount,
+      });
       setSession(final);
       setPhase("result");
     });
+  }
+
+  function advanceAfterFeedback() {
+    if (!atBat || !lastGrade) return;
+    cancelFlight();
+    if (pendingEndRef.current) {
+      endAtBat(pendingEndRef.current, countRef.current);
+      pendingEndRef.current = null;
+      return;
+    }
+    const nextCursor = cursorRef.current + 1;
+    cursorRef.current = nextCursor;
+    setPitchCursor(nextCursor);
+    beginPitch();
   }
 
   async function shareResult() {
@@ -169,26 +280,20 @@ export function DailyGame() {
     }
   }
 
-  function resetDay() {
-    setPitchIndex(0);
-    setRecognized(null);
-    setGrades([]);
-    setLastGrade(null);
-    setSession(null);
-    setAim(undefined);
-    setBallProgress(0);
-    setCopied(false);
+  function goHome() {
+    cancelFlight();
+    resetBattleState();
+    try {
+      const pick = getDailyAtBat(new Date());
+      setAtBat(pick.atBat);
+      setDateKey(pick.dateKey);
+      setIsDaily(true);
+    } catch {
+      /* keep current */
+    }
     setError(null);
     setPhase("intro");
   }
-
-  const progressPct = atBat
-    ? Math.round(
-        ((phase === "result" ? atBat.pitches.length : pitchIndex) /
-          atBat.pitches.length) *
-          100,
-      )
-    : 0;
 
   return (
     <div className="stadium-bg relative min-h-dvh overflow-hidden">
@@ -201,44 +306,51 @@ export function DailyGame() {
       <main className="relative z-10 mx-auto flex w-full max-w-lg flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
         {phase === "loading" && <LoadingState />}
         {phase === "error" && (
-          <ErrorState message={error ?? "Something went wrong."} onRetry={resetDay} />
+          <ErrorState message={error ?? "Something went wrong."} onRetry={goHome} />
         )}
         {phase === "intro" && atBat && (
           <IntroScreen
             dateKey={dateKey}
-            onPlay={() => setPhase("situation")}
+            daily={atBat}
             catalogSize={LEGENDARY_AT_BATS.length}
+            onPlayDaily={() => selectAtBat(atBat, true)}
+            onOpenCatalog={() => setPhase("catalog")}
+          />
+        )}
+        {phase === "catalog" && (
+          <CatalogScreen
+            dailyId={getDailyAtBat(new Date()).atBat.id}
+            onPick={(ab) => selectAtBat(ab, ab.id === getDailyAtBat(new Date()).atBat.id)}
+            onBack={() => setPhase("intro")}
           />
         )}
         {phase === "situation" && atBat && (
           <SituationScreen
             atBat={atBat}
             dateKey={dateKey}
+            count={count}
+            isDaily={isDaily}
             onStart={() => beginPitch()}
+            onBack={goHome}
           />
         )}
         {atBat &&
           currentPitch &&
-          (phase === "pitch_cue" ||
-            phase === "pitch_recognize" ||
-            phase === "pitch_decide" ||
-            phase === "pitch_aim" ||
-            phase === "pitch_feedback") && (
+          (phase === "pitch_live" || phase === "pitch_result") && (
             <PitchScreen
               atBat={atBat}
               pitch={currentPitch}
-              pitchIndex={pitchIndex}
-              totalPitches={atBat.pitches.length}
+              pitchNumber={pitchCursor + 1}
+              recycled={recycled}
               phase={phase}
-              recognized={recognized}
+              count={count}
               lastGrade={lastGrade}
               aim={aim}
               ballProgress={ballProgress}
-              progressPct={progressPct}
+              exitProgress={exitProgress}
               flightStart={flightStart.current}
-              onCueDone={goRecognize}
-              onPickType={pickType}
-              onDecide={decide}
+              abEnding={abEnding}
+              onTake={onTake}
               onAim={onAim}
               onContinue={advanceAfterFeedback}
             />
@@ -250,11 +362,16 @@ export function DailyGame() {
             copied={copied}
             pending={pending}
             onShare={shareResult}
-            onReplay={resetDay}
+            onReplay={() => selectAtBat(atBat, isDaily)}
+            onCatalog={() => {
+              resetBattleState();
+              setPhase("catalog");
+            }}
+            onHome={goHome}
           />
         )}
-        {!atBat && phase !== "loading" && phase !== "error" && (
-          <EmptyState onRetry={resetDay} />
+        {!atBat && phase !== "loading" && phase !== "error" && phase !== "catalog" && (
+          <EmptyState onRetry={goHome} />
         )}
       </main>
     </div>
@@ -268,9 +385,6 @@ function LoadingState() {
         Legendary At Bats
       </p>
       <p className="text-sm text-muted-foreground">Loading today’s challenge…</p>
-      <div className="h-1 w-40 overflow-hidden rounded-full bg-muted">
-        <div className="h-full w-1/2 animate-pulse bg-primary" />
-      </div>
     </div>
   );
 }
@@ -296,10 +410,7 @@ function ErrorState({
 function EmptyState({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 py-24 text-center anim-rise">
-      <p className="font-[family-name:var(--font-display)] text-3xl">No at-bat today</p>
-      <p className="text-sm text-muted-foreground">
-        The daily catalog didn’t load. Check back shortly.
-      </p>
+      <p className="font-[family-name:var(--font-display)] text-3xl">No at-bat</p>
       <Button variant="secondary" onClick={onRetry}>
         Reload
       </Button>
@@ -309,11 +420,15 @@ function EmptyState({ onRetry }: { onRetry: () => void }) {
 
 function IntroScreen({
   dateKey,
-  onPlay,
+  daily,
+  onPlayDaily,
+  onOpenCatalog,
   catalogSize,
 }: {
   dateKey: string;
-  onPlay: () => void;
+  daily: LegendaryAtBat;
+  onPlayDaily: () => void;
+  onOpenCatalog: () => void;
   catalogSize: number;
 }) {
   return (
@@ -328,34 +443,91 @@ function IntroScreen({
           <span className="text-primary">At Bats</span>
         </h1>
         <p className="mx-auto max-w-md text-base leading-relaxed text-muted-foreground sm:text-lg">
-          Step into clutch October moments. Read the pitch, decide take or swing,
-          aim the zone — then see if you matched the legend or changed history.
+          Watch the pitch. Take or swing where it’s going. Work the count — then
+          see if you matched the legend or changed history.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Today:{" "}
+          <span className="text-foreground">
+            {daily.codename} · {daily.venue} · {daily.away.abbr}{" "}
+            {daily.away.runs}–{daily.home.abbr} {daily.home.runs}
+          </span>
         </p>
       </div>
 
-      <div className="anim-rise-delay space-y-4">
-        <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
-          <Badge variant="secondary" className="rounded-md">
-            Pitch recognition
-          </Badge>
-          <Badge variant="secondary" className="rounded-md">
-            Take / swing
-          </Badge>
-          <Badge variant="secondary" className="rounded-md">
-            Zone aim
-          </Badge>
-        </div>
+      <div className="anim-rise-delay space-y-3">
         <Button
           size="lg"
           className="h-12 w-full text-base font-semibold tracking-wide"
-          onClick={onPlay}
+          onClick={onPlayDaily}
         >
           Play today’s at-bat
         </Button>
-        <p className="text-center text-[11px] text-muted-foreground/80">
-          {catalogSize}+ curated moments · team + jersey # only · no real names
-        </p>
+        <Button
+          size="lg"
+          variant="secondary"
+          className="h-12 w-full text-base"
+          onClick={onOpenCatalog}
+        >
+          Practice all {catalogSize} moments
+        </Button>
       </div>
+    </section>
+  );
+}
+
+function CatalogScreen({
+  dailyId,
+  onPick,
+  onBack,
+}: {
+  dailyId: string;
+  onPick: (ab: LegendaryAtBat) => void;
+  onBack: () => void;
+}) {
+  return (
+    <section className="anim-rise flex min-h-[85dvh] flex-col gap-4 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-[family-name:var(--font-display)] text-2xl tracking-wide text-primary">
+          All moments
+        </p>
+        <Button variant="ghost" size="sm" onClick={onBack}>
+          Back
+        </Button>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Open any legendary AB for testing — same rules as the daily.
+      </p>
+      <ul className="flex flex-1 flex-col gap-2 overflow-y-auto pb-4">
+        {LEGENDARY_AT_BATS.map((ab) => (
+          <li key={ab.id}>
+            <button
+              type="button"
+              onClick={() => onPick(ab)}
+              className="w-full rounded-md border border-border/70 bg-secondary/40 px-3 py-3 text-left transition hover:border-flood/40 hover:bg-secondary/70"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-medium text-foreground">{ab.codename}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {ab.year} · {ab.series} · {ab.gameLabel} · {ab.inning} ·{" "}
+                    {ab.venue}
+                  </p>
+                  <p className="mt-1 text-xs text-flood">
+                    {formatScoreLine(ab.away, ab.home)} · {ab.runners} · {ab.outs}{" "}
+                    out
+                  </p>
+                </div>
+                {ab.id === dailyId && (
+                  <Badge variant="outline" className="shrink-0 rounded-md text-[10px]">
+                    Today
+                  </Badge>
+                )}
+              </div>
+            </button>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -363,11 +535,17 @@ function IntroScreen({
 function SituationScreen({
   atBat,
   dateKey,
+  count,
+  isDaily,
   onStart,
+  onBack,
 }: {
-  atBat: NonNullable<ReturnType<typeof getDailyAtBat>["atBat"]>;
+  atBat: LegendaryAtBat;
   dateKey: string;
+  count: CountState;
+  isDaily: boolean;
   onStart: () => void;
+  onBack: () => void;
 }) {
   return (
     <section className="anim-rise flex min-h-[85dvh] flex-col justify-between gap-8 py-4">
@@ -377,12 +555,22 @@ function SituationScreen({
             Legendary At Bats
           </p>
           <Badge variant="outline" className="rounded-md border-flood/40 text-flood">
-            {dateKey}
+            {isDaily ? dateKey : "Practice"}
           </Badge>
         </div>
+
+        <ScoreBug
+          away={atBat.away}
+          home={atBat.home}
+          inning={atBat.inning}
+          outs={atBat.outs}
+          count={count}
+          bases={atBat.bases}
+        />
+
         <div>
           <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-            {atBat.year} · {atBat.series} · {atBat.gameLabel}
+            {atBat.year} · {atBat.series} · {atBat.gameLabel} · {atBat.venue}
           </p>
           <h2 className="mt-2 font-[family-name:var(--font-display)] text-4xl tracking-wide text-chalk sm:text-5xl">
             {atBat.codename}
@@ -392,10 +580,8 @@ function SituationScreen({
           {atBat.situationBlurb}
         </p>
         <dl className="grid grid-cols-2 gap-3 text-sm">
-          <Stat label="Inning" value={atBat.inning} />
-          <Stat label="Outs" value={String(atBat.outs)} />
-          <Stat label="Score" value={atBat.scoreText} />
           <Stat label="Runners" value={atBat.runners} />
+          <Stat label="Score" value={formatScoreLine(atBat.away, atBat.home)} />
           <Stat
             label="Batter"
             value={`${atBat.batter.team} #${atBat.batter.number} (${atBat.batter.bats})`}
@@ -409,9 +595,14 @@ function SituationScreen({
           {atBat.stakes}
         </p>
       </div>
-      <Button size="lg" className="h-12 w-full font-semibold" onClick={onStart}>
-        Step in · Pitch 1 of {atBat.pitches.length}
-      </Button>
+      <div className="grid gap-2">
+        <Button size="lg" className="h-12 w-full font-semibold" onClick={onStart}>
+          Step in · 0–0 count
+        </Button>
+        <Button variant="ghost" onClick={onBack}>
+          Back
+        </Button>
+      </div>
     </section>
   );
 }
@@ -430,157 +621,131 @@ function Stat({ label, value }: { label: string; value: string }) {
 function PitchScreen({
   atBat,
   pitch,
-  pitchIndex,
-  totalPitches,
+  pitchNumber,
+  recycled,
   phase,
-  recognized,
+  count,
   lastGrade,
   aim,
   ballProgress,
-  progressPct,
+  exitProgress,
   flightStart,
-  onCueDone,
-  onPickType,
-  onDecide,
+  abEnding,
+  onTake,
   onAim,
   onContinue,
 }: {
-  atBat: NonNullable<ReturnType<typeof getDailyAtBat>["atBat"]>;
-  pitch: NonNullable<
-    ReturnType<typeof getDailyAtBat>["atBat"]["pitches"][number]
-  >;
-  pitchIndex: number;
-  totalPitches: number;
+  atBat: LegendaryAtBat;
+  pitch: LegendaryAtBat["pitches"][number];
+  pitchNumber: number;
+  recycled: boolean;
   phase: GamePhase;
-  recognized: PitchType | null;
+  count: CountState;
   lastGrade: PitchResultGrade | null;
   aim?: ZoneCoord;
   ballProgress: number;
-  progressPct: number;
+  exitProgress: number;
   flightStart: number;
-  onCueDone: () => void;
-  onPickType: (t: PitchType) => void;
-  onDecide: (d: PitchDecision) => void;
+  abEnding: boolean;
+  onTake: () => void;
   onAim: (c: ZoneCoord, ms: number) => void;
   onContinue: () => void;
 }) {
-  useEffect(() => {
-    if (phase !== "pitch_cue") return;
-    const t = window.setTimeout(onCueDone, 1600);
-    return () => window.clearTimeout(t);
-  }, [phase, onCueDone, pitch.id]);
+  const live = phase === "pitch_live";
 
   return (
-    <section className="anim-rise flex min-h-[85dvh] flex-col gap-5 py-2">
-      <header className="space-y-2">
+    <section className="anim-rise flex min-h-[85dvh] flex-col gap-4 py-2">
+      <header className="space-y-3">
         <div className="flex items-center justify-between">
           <p className="font-[family-name:var(--font-display)] text-xl tracking-wide text-primary">
             Legendary At Bats
           </p>
           <p className="text-xs text-muted-foreground">
-            Pitch {pitchIndex + 1}/{totalPitches}
+            Pitch {pitchNumber}
+            {recycled ? " · recycled" : ""}
           </p>
         </div>
-        <Progress value={progressPct} className="h-1.5" />
+        <ScoreBug
+          away={atBat.away}
+          home={atBat.home}
+          inning={atBat.inning}
+          outs={atBat.outs}
+          count={count}
+          bases={atBat.bases}
+        />
         <p className="text-sm text-muted-foreground">
-          {atBat.batter.team} #{atBat.batter.number} · {pitch.speedMph} mph cue
+          {atBat.batter.team} #{atBat.batter.number} · {pitch.speedMph} mph
         </p>
       </header>
 
       <StrikeZone
-        interactive={phase === "pitch_aim"}
-        live={phase === "pitch_aim" || phase === "pitch_cue"}
+        interactive={live}
+        live={live}
         target={pitch.location}
+        pitchType={pitch.type}
         aim={aim}
-        showTarget={phase === "pitch_feedback"}
-        ballProgress={
-          phase === "pitch_aim" || phase === "pitch_cue" ? ballProgress || 0.15 : 0
-        }
+        showTarget={phase === "pitch_result"}
+        ballProgress={live ? Math.max(ballProgress, 0.02) : ballProgress}
+        exitProgress={phase === "pitch_result" ? exitProgress : 0}
+        play={lastGrade?.play ?? null}
+        contactPoint={aim}
         onAim={onAim}
         startedAt={flightStart}
-        className="my-2"
+        className="my-1"
       />
 
       <div className="mt-4 flex-1 space-y-4">
-        {phase === "pitch_cue" && (
-          <div className="text-center">
-            <p className="text-xs uppercase tracking-[0.25em] text-flood">
-              Pitch on the way
-            </p>
-            <p className="mt-2 text-sm text-foreground/90">{pitch.approachCue}</p>
-          </div>
-        )}
-
-        {phase === "pitch_recognize" && (
+        {live && (
           <div className="space-y-3">
-            <p className="text-center text-sm font-medium">What pitch is this?</p>
-            <div className="grid grid-cols-3 gap-2">
-              {PITCH_TYPES.map((t) => (
-                <Button
-                  key={t.id}
-                  variant="secondary"
-                  className="h-11"
-                  onClick={() => onPickType(t.id)}
-                >
-                  {t.label}
-                </Button>
-              ))}
+            <div className="text-center">
+              <p className="text-xs uppercase tracking-[0.25em] text-flood">
+                {count.balls}–{count.strikes} · pitch on the way
+              </p>
+              <p className="mt-2 text-sm text-foreground/90">{pitch.approachCue}</p>
             </div>
-          </div>
-        )}
-
-        {phase === "pitch_decide" && (
-          <div className="space-y-3">
-            <p className="text-center text-sm text-muted-foreground">
-              You called{" "}
-              <span className="font-semibold text-foreground">
-                {PITCH_TYPES.find((t) => t.id === recognized)?.label}
-              </span>
-              . Take or swing?
+            <Button
+              size="lg"
+              variant="secondary"
+              className="h-14 w-full text-base"
+              onClick={onTake}
+            >
+              Take
+            </Button>
+            <p className="text-center text-xs text-muted-foreground">
+              Or click the plate where you think it’s going
             </p>
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                size="lg"
-                variant="secondary"
-                className="h-14 text-base"
-                onClick={() => onDecide("take")}
-              >
-                Take
-              </Button>
-              <Button
-                size="lg"
-                className="h-14 text-base"
-                onClick={() => onDecide("swing")}
-              >
-                Swing
-              </Button>
-            </div>
           </div>
         )}
 
-        {phase === "pitch_aim" && (
-          <p className="text-center text-sm text-flood">
-            Swing! Click the zone as the pitch arrives.
-          </p>
-        )}
-
-        {phase === "pitch_feedback" && lastGrade && (
+        {phase === "pitch_result" && lastGrade && (
           <div className="space-y-3 rounded-md bg-secondary/50 p-4">
             <p className="font-[family-name:var(--font-display)] text-2xl tracking-wide text-primary">
               +{lastGrade.pitchScore} pts
             </p>
+            <p
+              className={cn(
+                "text-sm font-medium",
+                lastGrade.event === "out"
+                  ? "text-destructive"
+                  : lastGrade.event === "hit"
+                    ? "text-flood"
+                    : "text-foreground",
+              )}
+            >
+              {playResultLabel(lastGrade.play)}
+              <span className="text-muted-foreground">
+                {" "}
+                · {exitLabel(lastGrade.play)}
+                {lastGrade.launchDeg != null &&
+                  lastGrade.swung &&
+                  ` · ~${lastGrade.launchDeg}°`}
+                {" · "}
+                {pitchTypeLabel(pitch.type)}
+                {" · "}
+                {isInStrikeZone(pitch.location) ? "in zone" : "out of zone"}
+              </span>
+            </p>
             <ul className="space-y-1 text-sm text-muted-foreground">
-              <li>
-                Recognition:{" "}
-                <span
-                  className={cn(
-                    lastGrade.typeCorrect ? "text-flood" : "text-destructive",
-                  )}
-                >
-                  {lastGrade.typeCorrect ? "Correct" : "Miss"}
-                </span>{" "}
-                · actual {pitch.type}
-              </li>
               <li>
                 Decision:{" "}
                 <span
@@ -588,20 +753,25 @@ function PitchScreen({
                     lastGrade.decisionCorrect ? "text-flood" : "text-destructive",
                   )}
                 >
-                  {lastGrade.decision}{" "}
-                  {lastGrade.decisionCorrect ? "✓" : `(wanted ${pitch.expectedDecision})`}
+                  {lastGrade.decision}
+                  {lastGrade.decisionCorrect
+                    ? " ✓"
+                    : lastGrade.swung
+                      ? " · chased a ball"
+                      : " · strike looking"}
                 </span>
               </li>
-              {lastGrade.swung && (
+              {lastGrade.swung && lastGrade.contactQuality != null && (
                 <li>
-                  Aim / timing: {lastGrade.timingScore} timing pts
+                  Contact quality {(lastGrade.contactQuality * 100).toFixed(0)}%
                   {lastGrade.aimDistance != null &&
                     ` · miss ${lastGrade.aimDistance.toFixed(2)}`}
                 </li>
               )}
+              <li className="text-xs">{eventLabel(lastGrade.event)}</li>
             </ul>
             <Button className="w-full" onClick={onContinue}>
-              {pitchIndex + 1 < totalPitches ? "Next pitch" : "See the result"}
+              {abEnding ? "See the result" : "Next pitch"}
             </Button>
           </div>
         )}
@@ -617,15 +787,18 @@ function ResultScreen({
   pending,
   onShare,
   onReplay,
+  onCatalog,
+  onHome,
 }: {
-  atBat: NonNullable<ReturnType<typeof getDailyAtBat>["atBat"]>;
+  atBat: LegendaryAtBat;
   session: AtBatSessionResult;
   copied: boolean;
   pending: boolean;
   onShare: () => void;
   onReplay: () => void;
+  onCatalog: () => void;
+  onHome: () => void;
 }) {
-  const copy = verdictCopy(session.historyVerdict);
   const shareText = formatShareSummary({
     dateKey: session.dateKey,
     codename: atBat.codename,
@@ -637,6 +810,15 @@ function ResultScreen({
 
   return (
     <section className="anim-rise flex min-h-[85dvh] flex-col gap-6 py-4">
+      <ScoreBug
+        away={session.board.away}
+        home={session.board.home}
+        inning={atBat.inning}
+        outs={session.board.outs}
+        count={session.board.count}
+        bases={session.board.bases}
+      />
+
       <div className="space-y-2 text-center">
         <p className="font-[family-name:var(--font-display)] text-2xl tracking-wide text-primary">
           Legendary At Bats
@@ -645,9 +827,18 @@ function ResultScreen({
           {session.dateKey} · {atBat.codename}
         </p>
         <h2 className="font-[family-name:var(--font-display)] text-5xl tracking-wide text-chalk">
-          {copy.title}
+          {session.endingTitle}
         </h2>
-        <p className="mx-auto max-w-md text-sm text-muted-foreground">{copy.blurb}</p>
+        <p className="mx-auto max-w-md text-sm text-muted-foreground">
+          {session.endingBlurb}
+        </p>
+        <p className="text-xs text-flood">
+          {playResultLabel(session.finalPlay)}
+          {session.runsScored > 0 ? ` · ${session.runsScored} run(s)` : ""} · AB
+          count {session.finalCount.balls}–{session.finalCount.strikes} ·{" "}
+          {session.grades.length} pitch
+          {session.grades.length === 1 ? "" : "es"}
+        </p>
       </div>
 
       <div className="rounded-md bg-secondary/50 p-5 text-center">
@@ -662,7 +853,7 @@ function ResultScreen({
           </span>
         </p>
         <p className="mt-1 text-xs uppercase tracking-[0.2em] text-muted-foreground">
-          {pending ? "Finalizing…" : "Daily score"}
+          {pending ? "Finalizing…" : "Score"}
         </p>
       </div>
 
@@ -672,7 +863,9 @@ function ResultScreen({
         </p>
         <p className="font-medium text-foreground">
           {outcomeLabel(atBat.historical.outcome)}
-          {atBat.historical.batterSucceeded ? " · Batter came through" : " · Batter failed"}
+          {atBat.historical.batterSucceeded
+            ? " · Batter came through"
+            : " · Batter failed"}
         </p>
         <p className="text-sm leading-relaxed text-muted-foreground">
           {atBat.historical.summary}
@@ -681,7 +874,7 @@ function ResultScreen({
 
       <div className="space-y-2">
         <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-          Pitch grades
+          Pitch log
         </p>
         <ul className="space-y-2">
           {session.grades.map((g, i) => (
@@ -689,7 +882,10 @@ function ResultScreen({
               key={g.pitchId}
               className="flex items-center justify-between rounded-md bg-secondary/40 px-3 py-2 text-sm"
             >
-              <span>Pitch {i + 1}</span>
+              <span>
+                P{i + 1} · {playResultLabel(g.play)}
+                {g.launchDeg != null && g.swung ? ` · ~${g.launchDeg}°` : ""}
+              </span>
               <span className="tabular-nums text-primary">+{g.pitchScore}</span>
             </li>
           ))}
@@ -700,13 +896,21 @@ function ResultScreen({
         {shareText}
       </pre>
 
-      <div className="mt-auto grid gap-2 sm:grid-cols-2">
+      <div className="mt-auto grid gap-2">
         <Button size="lg" className="h-12" onClick={onShare}>
           {copied ? "Copied!" : "Copy share summary"}
         </Button>
-        <Button size="lg" variant="secondary" className="h-12" onClick={onReplay}>
-          Replay today’s AB
-        </Button>
+        <div className="grid gap-2 sm:grid-cols-3">
+          <Button size="lg" variant="secondary" className="h-11" onClick={onReplay}>
+            Replay
+          </Button>
+          <Button size="lg" variant="secondary" className="h-11" onClick={onCatalog}>
+            All moments
+          </Button>
+          <Button size="lg" variant="ghost" className="h-11" onClick={onHome}>
+            Home
+          </Button>
+        </div>
       </div>
     </section>
   );

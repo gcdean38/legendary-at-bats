@@ -3,7 +3,11 @@ export type PitchType = "FF" | "SI" | "SL" | "CH" | "CU" | "CT";
 export type PitchDecision = "take" | "swing";
 
 export type ZoneCoord = {
-  /** 0 = glove-side / inside for RHH view left, 1 = arm-side */
+  /**
+   * Full-plate coords (0–1 over the chase frame).
+   * The drawn 3×3 strike zone is an inset — see `isInStrikeZone`.
+   * x: 0 = glove-side left, 1 = arm-side right
+   */
   x: number;
   /** 0 = high, 1 = low */
   y: number;
@@ -18,7 +22,7 @@ export type SeedPitch = {
   inZone: boolean;
   /** What a smart batter should do in this spot */
   expectedDecision: PitchDecision;
-  /** Short cue shown just before recognition */
+  /** Short cue shown as the pitch starts */
   approachCue: string;
 };
 
@@ -41,22 +45,48 @@ export type HistoryVerdict =
   | "history_held"
   | "fell_short";
 
+export type ScoreSide = {
+  /** Three-letter location abbr, e.g. ARI / TEX */
+  abbr: string;
+  runs: number;
+};
+
+export type CountState = {
+  balls: number;
+  strikes: number;
+};
+
+/** Occupied bases when the AB begins */
+export type BasesState = {
+  first: boolean;
+  second: boolean;
+  third: boolean;
+};
+
 export type LegendaryAtBat = {
   id: string;
-  /** Short tag for share text, no names */
+  /** Display title: "Home City vs Away City" */
   codename: string;
-  /** Approximate calendar year of the moment */
+  /** Calendar year of the moment */
   year: number;
   series: string;
   gameLabel: string;
   inning: string;
+  /** Ballpark as [City] [Noun], e.g. Toronto Centre, Arlington Field */
+  venue: string;
+  /** Outs when the AB begins (score-bug O) */
   outs: number;
-  scoreText: string;
+  away: ScoreSide;
+  home: ScoreSide;
+  bases: BasesState;
+  /** Human label for situation copy */
   runners: string;
+  /** City identity only — never real player names */
   batter: { team: string; number: number; bats: "L" | "R" | "S" };
   pitcher: { team: string; number: number; throws: "L" | "R" };
   situationBlurb: string;
   stakes: string;
+  /** Scripted pitch pool — recycles if the AB extends (fouls, etc.) */
   pitches: SeedPitch[];
   historical: {
     outcome: HistoricalOutcome;
@@ -66,10 +96,44 @@ export type LegendaryAtBat = {
   };
 };
 
+export type ExitKind = "crush" | "line" | "ground" | "whiff" | "take";
+
+export type PitchEvent = "ball" | "strike" | "foul" | "hit" | "out";
+
+export type PlayResult =
+  | "home_run"
+  | "double"
+  | "single"
+  | "walk"
+  | "sac_fly"
+  | "fly_out"
+  | "ground_out"
+  | "line_out"
+  | "strikeout"
+  | "foul"
+  | "ball"
+  | "strike_looking"
+  | "whiff";
+
+export type AtBatEndReason =
+  | "walk"
+  | "strikeout"
+  | "hit"
+  | "out"
+  | "max_pitches";
+
+/** Situation-aware ending tone for the result screen */
+export type EndingTone =
+  | "won_game"
+  | "took_lead"
+  | "tied_game"
+  | "scored_continue"
+  | "pass_the_baton"
+  | "failed_hope"
+  | "failed_lost";
+
 export type PitchResultGrade = {
   pitchId: string;
-  recognizedType: PitchType | null;
-  typeCorrect: boolean;
   decision: PitchDecision;
   decisionCorrect: boolean;
   swung: boolean;
@@ -78,6 +142,11 @@ export type PitchResultGrade = {
   timingMs?: number;
   timingScore: number;
   pitchScore: number;
+  exitKind: ExitKind;
+  event: PitchEvent;
+  play: PlayResult;
+  launchDeg?: number;
+  contactQuality?: number;
 };
 
 export type AtBatSessionResult = {
@@ -89,16 +158,30 @@ export type AtBatSessionResult = {
   stars: number;
   historyVerdict: HistoryVerdict;
   playerCameThrough: boolean;
+  endReason: AtBatEndReason;
+  finalCount: CountState;
+  finalPlay: PlayResult;
+  endingTone: EndingTone;
+  endingTitle: string;
+  endingBlurb: string;
+  runsScored: number;
+  /** Score bug after the play resolves */
+  board: {
+    away: ScoreSide;
+    home: ScoreSide;
+    bases: BasesState;
+    outs: number;
+    /** Count clears after the AB; kept for pitch-log context separately */
+    count: CountState;
+  };
 };
 
 export type GamePhase =
   | "loading"
   | "error"
   | "intro"
+  | "catalog"
   | "situation"
-  | "pitch_cue"
-  | "pitch_recognize"
-  | "pitch_decide"
-  | "pitch_aim"
-  | "pitch_feedback"
+  | "pitch_live"
+  | "pitch_result"
   | "result";
