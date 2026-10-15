@@ -84,6 +84,7 @@ export function gradePitch(opts: {
   let exitKind: ExitKind = "take";
   let play: PlayResult = "ball";
   let launchDeg: number | undefined;
+  let exitVeloMph: number | undefined;
   let contactQuality: number | undefined;
   let event: PitchResultGrade["event"] = "ball";
 
@@ -103,6 +104,7 @@ export function gradePitch(opts: {
     exitKind = contact.exitKind;
     play = contact.play;
     launchDeg = contact.launchDeg;
+    exitVeloMph = contact.exitVeloMph;
     contactQuality = contact.quality;
     event = contact.event;
   } else if (!swung) {
@@ -137,6 +139,7 @@ export function gradePitch(opts: {
     event,
     play,
     launchDeg,
+    exitVeloMph,
     contactQuality,
   };
 }
@@ -171,9 +174,10 @@ export function finalizeSession(opts: {
     finalPlay = "strikeout";
   }
 
-  const { runs, bases: nextBases, batterOut } = applyBaserunning(
+  const { runs, bases: nextBases, outsRecorded } = applyBaserunning(
     opts.atBat.bases,
     finalPlay,
+    opts.atBat.outs,
   );
   const narrative = resolveEndingNarrative({
     atBat: opts.atBat,
@@ -196,7 +200,7 @@ export function finalizeSession(opts: {
     ...opts.atBat.home,
     runs: opts.atBat.home.runs + (isHome ? runs : 0),
   };
-  const outs = Math.min(3, opts.atBat.outs + (batterOut ? 1 : 0));
+  const outs = Math.min(3, opts.atBat.outs + outsRecorded);
 
   return {
     atBatId: opts.atBat.id,

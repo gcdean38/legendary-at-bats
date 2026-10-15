@@ -37,6 +37,8 @@ import { cn } from "@/lib/utils";
 const FLIGHT_MS = 1400;
 const EXIT_MS = 720;
 const LATE_TAKE_GRACE_MS = 900;
+/** Auto-advance between pitches (not on AB end). */
+const BETWEEN_PITCH_MS = 5000;
 
 export function DailyGame() {
   const [phase, setPhase] = useState<GamePhase>("loading");
@@ -54,6 +56,7 @@ export function DailyGame() {
   const [exitProgress, setExitProgress] = useState(0);
   const [copied, setCopied] = useState(false);
   const [abEnding, setAbEnding] = useState(false);
+  const [continueInSec, setContinueInSec] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
   const flightStart = useRef(0);
   const rafRef = useRef<number | null>(null);
@@ -62,6 +65,7 @@ export function DailyGame() {
   const countRef = useRef<CountState>({ balls: 0, strikes: 0 });
   const cursorRef = useRef(0);
   const pendingEndRef = useRef<AtBatEndReason | null>(null);
+  const continueTimerRef = useRef<number | null>(null);
 
   const currentPitch =
     atBat && atBat.pitches.length > 0
@@ -87,14 +91,47 @@ export function DailyGame() {
   useEffect(() => {
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (continueTimerRef.current) window.clearInterval(continueTimerRef.current);
     };
   }, []);
+
+  // Auto-advance to the next pitch after a short countdown (AB end stays manual).
+  useEffect(() => {
+    if (phase !== "pitch_result" || abEnding || !lastGrade) {
+      cancelContinueTimer();
+      return;
+    }
+    const totalSec = Math.ceil(BETWEEN_PITCH_MS / 1000);
+    setContinueInSec(totalSec);
+    const started = performance.now();
+    continueTimerRef.current = window.setInterval(() => {
+      const left = Math.ceil(
+        (BETWEEN_PITCH_MS - (performance.now() - started)) / 1000,
+      );
+      if (left <= 0) {
+        cancelContinueTimer();
+        advanceAfterFeedback();
+      } else {
+        setContinueInSec(left);
+      }
+    }, 200);
+    return () => cancelContinueTimer();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, abEnding, lastGrade, pitchCursor]);
 
   function cancelFlight() {
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
+  }
+
+  function cancelContinueTimer() {
+    if (continueTimerRef.current) {
+      window.clearInterval(continueTimerRef.current);
+      continueTimerRef.current = null;
+    }
+    setContinueInSec(null);
   }
 
   function startFlightLoop() {
@@ -125,6 +162,7 @@ export function DailyGame() {
   }
 
   function resetBattleState() {
+    cancelContinueTimer();
     decidedRef.current = false;
     gradesRef.current = [];
     countRef.current = { balls: 0, strikes: 0 };
@@ -247,6 +285,7 @@ export function DailyGame() {
 
   function advanceAfterFeedback() {
     if (!atBat || !lastGrade) return;
+    cancelContinueTimer();
     cancelFlight();
     if (pendingEndRef.current) {
       endAtBat(pendingEndRef.current, countRef.current);
@@ -350,6 +389,7 @@ export function DailyGame() {
               exitProgress={exitProgress}
               flightStart={flightStart.current}
               abEnding={abEnding}
+              continueInSec={continueInSec}
               onTake={onTake}
               onAim={onAim}
               onContinue={advanceAfterFeedback}
@@ -631,6 +671,7 @@ function PitchScreen({
   exitProgress,
   flightStart,
   abEnding,
+  continueInSec,
   onTake,
   onAim,
   onContinue,
@@ -647,6 +688,7 @@ function PitchScreen({
   exitProgress: number;
   flightStart: number;
   abEnding: boolean;
+  continueInSec: number | null;
   onTake: () => void;
   onAim: (c: ZoneCoord, ms: number) => void;
   onContinue: () => void;
@@ -764,15 +806,36 @@ function PitchScreen({
               {lastGrade.swung && lastGrade.contactQuality != null && (
                 <li>
                   Contact quality {(lastGrade.contactQuality * 100).toFixed(0)}%
+                  {lastGrade.exitVeloMph != null &&
+                    ` · ~${lastGrade.exitVeloMph} mph`}
                   {lastGrade.aimDistance != null &&
                     ` · miss ${lastGrade.aimDistance.toFixed(2)}`}
                 </li>
               )}
               <li className="text-xs">{eventLabel(lastGrade.event)}</li>
             </ul>
-            <Button className="w-full" onClick={onContinue}>
-              {abEnding ? "See the result" : "Next pitch"}
-            </Button>
+            {abEnding ? (
+              <Button className="w-full" onClick={onContinue}>
+                See the result
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-center text-sm text-muted-foreground">
+                  Next pitch in{" "}
+                  <span className="font-medium text-foreground">
+                    {continueInSec ?? Math.ceil(BETWEEN_PITCH_MS / 1000)}
+                  </span>
+                  s
+                </p>
+                <Button
+                  variant="secondary"
+                  className="w-full"
+                  onClick={onContinue}
+                >
+                  Skip wait
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>

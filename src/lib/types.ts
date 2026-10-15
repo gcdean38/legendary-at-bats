@@ -108,6 +108,7 @@ export type PlayResult =
   | "sac_fly"
   | "fly_out"
   | "ground_out"
+  | "double_play"
   | "line_out"
   | "strikeout"
   | "foul"
@@ -146,6 +147,8 @@ export type PitchResultGrade = {
   event: PitchEvent;
   play: PlayResult;
   launchDeg?: number;
+  /** Stylized exit velo (mph) from contact quality */
+  exitVeloMph?: number;
   contactQuality?: number;
 };
 
