@@ -6,6 +6,8 @@ import type {
   ZoneCoord,
 } from "@/lib/types";
 
+export type BatterHand = "L" | "R" | "S";
+
 export type ContactEstimate = {
   /** -1 topped (ground ball) … 0 square … +1 undercut (fly) */
   vertical: number;
@@ -80,6 +82,55 @@ function exitVeloFromQuality(quality: number): number {
 }
 
 /**
+ * Click = barrel sweet spot. Bat reaches farther toward the handle
+ * (batter side) than past the tip. Catcher's view: RHB stands left,
+ * tip points right — so a ball to the tip-side / up-and-away from the
+ * barrel is usually a whiff.
+ */
+export function barrelReach(opts: {
+  pitchLoc: ZoneCoord;
+  aim: ZoneCoord;
+  bats: BatterHand;
+}): { onBat: boolean; proximity: number; tipSideMiss: boolean } {
+  const { pitchLoc, aim, bats } = opts;
+  // Switch hits as RHB for the kernel (common default)
+  const rhb = bats !== "L";
+  // Ball offset from sweet spot: +x = ball is to the right of the barrel
+  const dx = pitchLoc.x - aim.x;
+  const dy = pitchLoc.y - aim.y;
+
+  // Along-bat axis: tip direction is +x for RHB, -x for LHB
+  const tipSign = rhb ? 1 : -1;
+  const alongTip = dx * tipSign; // >0 = ball past the tip
+  const alongHandle = -alongTip; // >0 = ball toward the handle / batter
+
+  // Tight perpendicular window (height of the barrel)
+  const perp = Math.abs(dy);
+  const PERP_MAX = 0.14;
+  // Tiny reach past the tip; more toward the handle (weak wood)
+  const TIP_MAX = 0.055;
+  const HANDLE_MAX = 0.2;
+
+  if (perp > PERP_MAX) {
+    return { onBat: false, proximity: 0, tipSideMiss: alongTip > 0 };
+  }
+  if (alongTip > TIP_MAX) {
+    return { onBat: false, proximity: 0, tipSideMiss: true };
+  }
+  if (alongHandle > HANDLE_MAX) {
+    return { onBat: false, proximity: 0, tipSideMiss: false };
+  }
+
+  // Anisotropic “distance” — tip-side and height hurt more than handle-side
+  const tipPenalty = alongTip > 0 ? alongTip / TIP_MAX : 0;
+  const handlePenalty = alongHandle > 0 ? alongHandle / HANDLE_MAX : 0;
+  const perpPenalty = perp / PERP_MAX;
+  const miss = Math.hypot(tipPenalty * 1.15, handlePenalty * 0.75, perpPenalty);
+  const proximity = clamp(1 - miss, 0, 1);
+  return { onBat: proximity > 0.05, proximity, tipSideMiss: alongTip > TIP_MAX * 0.5 };
+}
+
+/**
  * Stylized contact → play result (deterministic thresholds, not RNG odds).
  * Hits must be clearly squared up; ordinary solid contact becomes outs.
  * Force-situation grounders with <2 outs become double plays.
@@ -91,19 +142,23 @@ export function estimateContact(opts: {
   windowMs: number;
   bases: BasesState;
   outs: number;
+  bats?: BatterHand;
 }): ContactEstimate {
   const { pitchLoc, aim, bases, outs } = opts;
-  const distance = dist(aim, pitchLoc);
+  const bats = opts.bats ?? "R";
   const tFactor = timingFactor(opts.timingMs, opts.windowMs);
+  const reach = barrelReach({ pitchLoc, aim, bats });
+  const euclid = dist(aim, pitchLoc);
 
   // y grows downward: aim below the ball (higher y) = undercut = fly
   const vertical = clamp((aim.y - pitchLoc.y) / 0.18, -1, 1);
-  const proximity = clamp(1 - distance / 0.38, 0, 1);
-  const quality = clamp(proximity * 0.5 + tFactor * 0.5, 0, 1);
+  const proximity = reach.proximity;
+  const quality = clamp(proximity * 0.55 + tFactor * 0.45, 0, 1);
   const { launchDeg, band } = launchFromVertical(vertical);
   const exitVeloMph = exitVeloFromQuality(quality);
 
-  if (quality < 0.22 || (distance > 0.34 && tFactor < 0.42)) {
+  // Off the barrel entirely (e.g. RHB click up-and-left of the pitch) → whiff
+  if (!reach.onBat || quality < 0.2 || (euclid > 0.36 && tFactor < 0.4)) {
     return {
       vertical,
       quality,

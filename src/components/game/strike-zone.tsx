@@ -61,6 +61,20 @@ export function StrikeZone({
     : null;
   const inboundScale = inboundActive ? ballScaleAt(ballProgress) : 1;
 
+  // Light fading tail behind the ball so break/movement reads clearly
+  const TRAIL_COUNT = 14;
+  const trailSpan = 0.32;
+  const trail =
+    inboundActive && ballProgress > 0.04
+      ? Array.from({ length: TRAIL_COUNT }, (_, i) => {
+          const u = (i + 1) / (TRAIL_COUNT + 1); // 0→1 toward the ball
+          const t = Math.max(0, ballProgress - trailSpan * (1 - u));
+          const pos = ballPositionAt(t, target, pitchType);
+          const scale = ballScaleAt(t);
+          return { pos, scale, fade: u * u };
+        })
+      : [];
+
   const showingExit =
     !!play &&
     play !== "ball" &&
@@ -150,6 +164,22 @@ export function StrikeZone({
               }}
             />
           )}
+
+        {trail.map((node, i) => (
+          <span
+            key={`trail-${i}`}
+            className="pointer-events-none absolute z-[9] rounded-full bg-chalk/80"
+            style={{
+              left: `${node.pos.x * 100}%`,
+              top: `${node.pos.y * 100}%`,
+              width: `${0.35 + node.scale * 0.55}rem`,
+              height: `${0.35 + node.scale * 0.55}rem`,
+              transform: "translate(-50%, -50%)",
+              opacity: 0.08 + node.fade * 0.38,
+              boxShadow: `0 0 ${4 + node.fade * 10}px oklch(0.84 0.15 78 / ${0.15 + node.fade * 0.35})`,
+            }}
+          />
+        ))}
 
         {inboundPos && (
           <span

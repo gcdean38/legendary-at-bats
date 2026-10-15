@@ -95,9 +95,12 @@ export function DailyGame() {
     };
   }, []);
 
-  // Auto-advance with a 3–2–1 grow/fade beat (AB end stays manual).
+  // 3–2–1 grow/fade: before first pitch (windup) and between pitches.
   useEffect(() => {
-    if (phase !== "pitch_result" || abEnding || !lastGrade) {
+    const betweenPitches =
+      phase === "pitch_result" && !abEnding && !!lastGrade;
+    const firstOrNextWindup = phase === "pitch_windup";
+    if (!betweenPitches && !firstOrNextWindup) {
       cancelContinueTimer();
       return;
     }
@@ -108,7 +111,8 @@ export function DailyGame() {
       beat -= 1;
       if (beat <= 0) {
         cancelContinueTimer();
-        advanceAfterFeedback();
+        if (firstOrNextWindup) beginPitch();
+        else advanceAfterFeedback();
       } else {
         setContinueInSec(beat);
       }
@@ -188,6 +192,7 @@ export function DailyGame() {
   }
 
   function beginPitch() {
+    cancelContinueTimer();
     decidedRef.current = false;
     setAim(undefined);
     setLastGrade(null);
@@ -197,6 +202,20 @@ export function DailyGame() {
     pendingEndRef.current = null;
     setPhase("pitch_live");
     startFlightLoop();
+  }
+
+  /** 3–2–1 over the plate, then the pitch flies. */
+  function beginPitchWindup() {
+    cancelFlight();
+    cancelContinueTimer();
+    decidedRef.current = false;
+    setAim(undefined);
+    setLastGrade(null);
+    setBallProgress(0);
+    setExitProgress(0);
+    setAbEnding(false);
+    pendingEndRef.current = null;
+    setPhase("pitch_windup");
   }
 
   function commitPitchGrade(grade: PitchResultGrade, swingAim?: ZoneCoord) {
@@ -239,6 +258,7 @@ export function DailyGame() {
       windowMs: FLIGHT_MS,
       bases: atBat.bases,
       outs: atBat.outs,
+      bats: atBat.batter.bats,
     });
     commitPitchGrade(grade);
   }
@@ -253,6 +273,7 @@ export function DailyGame() {
       windowMs: FLIGHT_MS,
       bases: atBat.bases,
       outs: atBat.outs,
+      bats: atBat.batter.bats,
     });
     commitPitchGrade(grade, coord);
   }
@@ -367,13 +388,15 @@ export function DailyGame() {
             dateKey={dateKey}
             count={count}
             isDaily={isDaily}
-            onStart={() => beginPitch()}
+            onStart={() => beginPitchWindup()}
             onBack={goHome}
           />
         )}
         {atBat &&
           currentPitch &&
-          (phase === "pitch_live" || phase === "pitch_result") && (
+          (phase === "pitch_windup" ||
+            phase === "pitch_live" ||
+            phase === "pitch_result") && (
             <PitchScreen
               atBat={atBat}
               pitch={currentPitch}
@@ -692,6 +715,17 @@ function PitchScreen({
   onContinue: () => void;
 }) {
   const live = phase === "pitch_live";
+  const windup = phase === "pitch_windup";
+  const batsLabel =
+    atBat.batter.bats === "L"
+      ? "LHB"
+      : atBat.batter.bats === "S"
+        ? "SHB"
+        : "RHB";
+  const batsHint =
+    atBat.batter.bats === "L"
+      ? "Click = barrel sweet spot · tip points left"
+      : "Click = barrel sweet spot · tip points right";
 
   return (
     <section className="anim-rise flex min-h-[85dvh] flex-col gap-4 py-2">
@@ -713,9 +747,18 @@ function PitchScreen({
           count={count}
           bases={atBat.bases}
         />
-        <p className="text-sm text-muted-foreground">
-          {atBat.batter.team} #{atBat.batter.number} · {pitch.speedMph} mph
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm text-muted-foreground">
+            {atBat.batter.team} #{atBat.batter.number} · {pitch.speedMph} mph
+          </p>
+          <Badge
+            variant="outline"
+            className="rounded-md border-flood/50 text-flood"
+            title={batsHint}
+          >
+            Bats {atBat.batter.bats} · {batsLabel}
+          </Badge>
+        </div>
       </header>
 
       <div className="relative my-1">
@@ -733,8 +776,7 @@ function PitchScreen({
           onAim={onAim}
           startedAt={flightStart}
         />
-        {!live &&
-          !abEnding &&
+        {(windup || (!live && !abEnding)) &&
           continueInSec != null &&
           continueInSec >= 1 && (
             <div
@@ -743,7 +785,7 @@ function PitchScreen({
               aria-atomic="true"
             >
               <span
-                key={continueInSec}
+                key={`${phase}-${continueInSec}`}
                 className="anim-countdown-pop font-[family-name:var(--font-display)] text-[7.5rem] leading-none tracking-wide text-primary drop-shadow-[0_0_28px_oklch(0.84_0.15_78/0.55)] sm:text-[9rem]"
               >
                 {continueInSec}
@@ -753,6 +795,15 @@ function PitchScreen({
       </div>
 
       <div className="mt-4 flex-1 space-y-4">
+        {windup && (
+          <div className="space-y-2 text-center">
+            <p className="text-xs uppercase tracking-[0.25em] text-flood">
+              Get set · {batsLabel}
+            </p>
+            <p className="text-sm text-muted-foreground">{batsHint}</p>
+          </div>
+        )}
+
         {live && (
           <div className="space-y-3">
             <div className="text-center">
@@ -770,7 +821,7 @@ function PitchScreen({
               Take
             </Button>
             <p className="text-center text-xs text-muted-foreground">
-              Or click the plate where you think it’s going
+              Click the barrel sweet spot ({batsLabel}) — or Take
             </p>
           </div>
         )}

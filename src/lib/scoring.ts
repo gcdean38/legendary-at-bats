@@ -71,6 +71,8 @@ export function gradePitch(opts: {
   windowMs: number;
   bases: BasesState;
   outs: number;
+  /** Batter handedness — shapes the barrel contact kernel */
+  bats?: "L" | "R" | "S";
 }): PitchResultGrade {
   const inZone = isInStrikeZone(opts.pitch.location);
   const swung = opts.decision === "swing";
@@ -100,6 +102,7 @@ export function gradePitch(opts: {
       windowMs: opts.windowMs,
       bases: opts.bases,
       outs: opts.outs,
+      bats: opts.bats,
     });
     exitKind = contact.exitKind;
     play = contact.play;

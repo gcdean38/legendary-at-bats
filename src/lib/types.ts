@@ -185,6 +185,7 @@ export type GamePhase =
   | "intro"
   | "catalog"
   | "situation"
+  | "pitch_windup"
   | "pitch_live"
   | "pitch_result"
   | "result";
