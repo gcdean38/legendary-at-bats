@@ -108,7 +108,7 @@ export function barrelReach(opts: {
   const perp = Math.abs(dy);
   const PERP_MAX = 0.14;
   // Tiny reach past the tip; more toward the handle (weak wood)
-  const TIP_MAX = 0.055;
+  const TIP_MAX = 0.08;
   const HANDLE_MAX = 0.2;
 
   if (perp > PERP_MAX) {
