@@ -37,8 +37,8 @@ import { cn } from "@/lib/utils";
 const FLIGHT_MS = 1400;
 const EXIT_MS = 720;
 const LATE_TAKE_GRACE_MS = 900;
-/** Auto-advance between pitches (not on AB end). */
-const BETWEEN_PITCH_MS = 5000;
+/** Auto-advance between pitches (3–2–1 grow/fade; not on AB end). */
+const BETWEEN_PITCH_MS = 3000;
 
 export function DailyGame() {
   const [phase, setPhase] = useState<GamePhase>("loading");
@@ -95,26 +95,24 @@ export function DailyGame() {
     };
   }, []);
 
-  // Auto-advance to the next pitch after a short countdown (AB end stays manual).
+  // Auto-advance with a 3–2–1 grow/fade beat (AB end stays manual).
   useEffect(() => {
     if (phase !== "pitch_result" || abEnding || !lastGrade) {
       cancelContinueTimer();
       return;
     }
-    const totalSec = Math.ceil(BETWEEN_PITCH_MS / 1000);
-    setContinueInSec(totalSec);
-    const started = performance.now();
+    const beats = Math.max(1, Math.round(BETWEEN_PITCH_MS / 1000));
+    let beat = beats;
+    setContinueInSec(beat);
     continueTimerRef.current = window.setInterval(() => {
-      const left = Math.ceil(
-        (BETWEEN_PITCH_MS - (performance.now() - started)) / 1000,
-      );
-      if (left <= 0) {
+      beat -= 1;
+      if (beat <= 0) {
         cancelContinueTimer();
         advanceAfterFeedback();
       } else {
-        setContinueInSec(left);
+        setContinueInSec(beat);
       }
-    }, 200);
+    }, 1000);
     return () => cancelContinueTimer();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, abEnding, lastGrade, pitchCursor]);
@@ -720,21 +718,39 @@ function PitchScreen({
         </p>
       </header>
 
-      <StrikeZone
-        interactive={live}
-        live={live}
-        target={pitch.location}
-        pitchType={pitch.type}
-        aim={aim}
-        showTarget={phase === "pitch_result"}
-        ballProgress={live ? Math.max(ballProgress, 0.02) : ballProgress}
-        exitProgress={phase === "pitch_result" ? exitProgress : 0}
-        play={lastGrade?.play ?? null}
-        contactPoint={aim}
-        onAim={onAim}
-        startedAt={flightStart}
-        className="my-1"
-      />
+      <div className="relative my-1">
+        <StrikeZone
+          interactive={live}
+          live={live}
+          target={pitch.location}
+          pitchType={pitch.type}
+          aim={aim}
+          showTarget={phase === "pitch_result"}
+          ballProgress={live ? Math.max(ballProgress, 0.02) : ballProgress}
+          exitProgress={phase === "pitch_result" ? exitProgress : 0}
+          play={lastGrade?.play ?? null}
+          contactPoint={aim}
+          onAim={onAim}
+          startedAt={flightStart}
+        />
+        {!live &&
+          !abEnding &&
+          continueInSec != null &&
+          continueInSec >= 1 && (
+            <div
+              className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              <span
+                key={continueInSec}
+                className="anim-countdown-pop font-[family-name:var(--font-display)] text-[7.5rem] leading-none tracking-wide text-primary drop-shadow-[0_0_28px_oklch(0.84_0.15_78/0.55)] sm:text-[9rem]"
+              >
+                {continueInSec}
+              </span>
+            </div>
+          )}
+      </div>
 
       <div className="mt-4 flex-1 space-y-4">
         {live && (
@@ -820,12 +836,8 @@ function PitchScreen({
               </Button>
             ) : (
               <div className="space-y-2">
-                <p className="text-center text-sm text-muted-foreground">
-                  Next pitch in{" "}
-                  <span className="font-medium text-foreground">
-                    {continueInSec ?? Math.ceil(BETWEEN_PITCH_MS / 1000)}
-                  </span>
-                  s
+                <p className="text-center text-xs uppercase tracking-[0.22em] text-muted-foreground">
+                  Next pitch
                 </p>
                 <Button
                   variant="secondary"
