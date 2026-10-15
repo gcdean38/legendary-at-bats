@@ -83,66 +83,136 @@ export function ballScaleAt(progress: number): number {
   return 0.28 + p * p * 0.85;
 }
 
+export type ExitVisual = {
+  x: number;
+  y: number;
+  /** Apparent size — shrinks as the ball goes into the field */
+  scale: number;
+  opacity: number;
+  /** Ground-shadow Y (slightly below the ball) for a cheap 3D read */
+  shadowY: number;
+  shadowScale: number;
+  shadowOpacity: number;
+};
+
 /**
- * Distinct exit arcs by play result so a HR, grounder, and can-of-corn
- * don't look the same. Coords are full-plate; can leave the frame.
+ * Batted-ball path into the field (catcher looking out).
+ * Progress 0 = contact at the plate; 1 = deep into the play / faded out.
  */
 export function exitPositionAt(
   progress: number,
   contact: ZoneCoord,
   play: PlayResult,
 ): ZoneCoord {
+  return exitVisualAt(progress, contact, play);
+}
+
+/**
+ * Perspective flight: ball climbs/carries into the field, shrinks with
+ * depth, and fades — with a soft ground shadow for a 3D-ish track feel.
+ */
+export function exitVisualAt(
+  progress: number,
+  contact: ZoneCoord,
+  play: PlayResult,
+): ExitVisual {
   const p = clamp01(progress);
   const style: ExitPathStyle = pathStyleForPlay(play);
 
+  let x = contact.x;
+  let y = contact.y;
+  let height = 0; // lift above "turf" for shadow separation
+  let depth = p; // how far into the field (drives shrink)
+
   switch (style) {
     case "hr":
-      return {
-        x: contact.x + 0.2 * p + 0.15 * p * p,
-        y: contact.y - 0.55 * p - 1.1 * p * p,
-      };
+      x = contact.x + 0.12 * p + 0.35 * p * p;
+      y = contact.y - 0.35 * p - 1.35 * p * p;
+      height = 0.55 * Math.sin(p * Math.PI * 0.85);
+      depth = p;
+      break;
     case "double":
-      return {
-        x: contact.x + 0.7 * p,
-        y: contact.y - 0.45 * p - 0.15 * p * p,
-      };
+      x = contact.x + 0.55 * p + 0.35 * p * p;
+      y = contact.y - 0.55 * p - 0.35 * p * p;
+      height = 0.28 * Math.sin(p * Math.PI * 0.9);
+      depth = p;
+      break;
     case "liner":
-      return {
-        x: contact.x + 0.55 * p,
-        y: contact.y - 0.2 * p + 0.25 * p * p,
-      };
+      x = contact.x + 0.45 * p + 0.25 * p * p;
+      y = contact.y - 0.35 * p + 0.15 * p * p;
+      height = 0.12 * (1 - p);
+      depth = Math.min(1, p * 1.15);
+      break;
     case "ground_single":
-      return {
-        x: contact.x + 0.55 * p,
-        y: contact.y + 0.08 * Math.sin(p * Math.PI * 2) + 0.12 * p,
-      };
+      x = contact.x + 0.5 * p + 0.2 * p * p;
+      y = contact.y + 0.06 * Math.sin(p * Math.PI * 2) + 0.08 * p;
+      height = 0.04 * Math.abs(Math.sin(p * Math.PI * 2));
+      depth = p * 0.85;
+      break;
     case "fly_out":
-      return {
-        x: contact.x + 0.25 * p,
-        y: contact.y - 0.85 * Math.sin(p * Math.PI) + 0.15 * p,
-      };
+      x = contact.x + 0.18 * p + 0.12 * p * p;
+      y = contact.y - 0.95 * Math.sin(p * Math.PI * 0.92) + 0.2 * p;
+      height = 0.45 * Math.sin(p * Math.PI);
+      depth = p;
+      break;
     case "sac":
-      return {
-        x: contact.x + 0.35 * p,
-        y: contact.y - 0.7 * Math.sin(p * Math.PI * 0.85) + 0.05 * p,
-      };
+      x = contact.x + 0.28 * p + 0.15 * p * p;
+      y = contact.y - 0.8 * Math.sin(p * Math.PI * 0.88) + 0.12 * p;
+      height = 0.38 * Math.sin(p * Math.PI * 0.9);
+      depth = p;
+      break;
     case "ground_out":
-      return {
-        x: contact.x + 0.28 * p,
-        y: contact.y + 0.2 * p + 0.25 * p * p,
-      };
+      x = contact.x + 0.22 * p + 0.12 * p * p;
+      y = contact.y + 0.15 * p + 0.2 * p * p;
+      height = 0.03 * (1 - p);
+      depth = p * 0.7;
+      break;
     case "whiff":
-      return {
-        x: contact.x + 0.04 * p,
-        y: contact.y + 0.5 * p,
-      };
+      x = contact.x + 0.03 * p;
+      y = contact.y + 0.55 * p;
+      height = 0;
+      depth = p * 0.4;
+      break;
     case "take":
     default:
-      return {
-        x: contact.x,
-        y: contact.y + 0.45 * p,
-      };
+      x = contact.x;
+      y = contact.y + 0.5 * p;
+      height = 0;
+      depth = p * 0.3;
+      break;
   }
+
+  // Shrink into the field + fade as it carries
+  const scale = Math.max(0.18, 1 - depth * 0.78);
+  const opacity = Math.max(0, 1 - Math.pow(p, 1.15) * 0.95);
+  const shadowY = y + 0.04 + height * 0.55;
+  const shadowScale = Math.max(0.2, scale * (0.9 - height * 0.5));
+  const shadowOpacity = opacity * (0.22 + (1 - height) * 0.18);
+
+  return {
+    x,
+    y: y - height * 0.35,
+    scale,
+    opacity,
+    shadowY,
+    shadowScale,
+    shadowOpacity,
+  };
+}
+
+/** Sampled track points for drawing the batted-ball path. */
+export function exitTrackSamples(
+  contact: ZoneCoord,
+  play: PlayResult,
+  upToProgress: number,
+  count = 16,
+): ExitVisual[] {
+  const end = clamp01(upToProgress);
+  if (end <= 0.02) return [];
+  return Array.from({ length: count }, (_, i) => {
+    const t = ((i + 1) / count) * end;
+    return exitVisualAt(t, contact, play);
+  });
 }
 
 export function exitLabel(play: PlayResult): string {

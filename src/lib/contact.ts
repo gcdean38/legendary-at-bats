@@ -82,10 +82,15 @@ function exitVeloFromQuality(quality: number): number {
 }
 
 /**
- * Click = barrel sweet spot. Bat reaches farther toward the handle
- * (batter side) than past the tip. Catcher's view: RHB stands left,
- * tip points right — so a ball to the tip-side / up-and-away from the
- * barrel is usually a whiff.
+ * Plate-normalized radius of the barrel disc (matches the on-screen
+ * sweet-spot marker). Pitch anywhere inside ≈ on the barrel.
+ */
+export const BARREL_RADIUS = 0.12;
+
+/**
+ * Click center = barrel sweet spot. The full disc around the click is
+ * the barrel — mildly oval by handedness (tip side a bit shorter than
+ * handle side) so RHB still whiffs more on up-and-in tip misses.
  */
 export function barrelReach(opts: {
   pitchLoc: ZoneCoord;
@@ -93,41 +98,38 @@ export function barrelReach(opts: {
   bats: BatterHand;
 }): { onBat: boolean; proximity: number; tipSideMiss: boolean } {
   const { pitchLoc, aim, bats } = opts;
-  // Switch hits as RHB for the kernel (common default)
   const rhb = bats !== "L";
-  // Ball offset from sweet spot: +x = ball is to the right of the barrel
   const dx = pitchLoc.x - aim.x;
   const dy = pitchLoc.y - aim.y;
 
-  // Along-bat axis: tip direction is +x for RHB, -x for LHB
   const tipSign = rhb ? 1 : -1;
-  const alongTip = dx * tipSign; // >0 = ball past the tip
-  const alongHandle = -alongTip; // >0 = ball toward the handle / batter
+  const alongTip = dx * tipSign;
+  const alongHandle = -alongTip;
 
-  // Tight perpendicular window (height of the barrel)
-  const perp = Math.abs(dy);
-  const PERP_MAX = 0.14;
-  // Tiny reach past the tip; more toward the handle (weak wood)
-  const TIP_MAX = 0.08;
-  const HANDLE_MAX = 0.2;
+  // Full disc ≈ barrel; tip slightly shorter, handle slightly longer
+  const rTip = BARREL_RADIUS * 0.92;
+  const rHandle = BARREL_RADIUS * 1.18;
+  const rPerp = BARREL_RADIUS;
+  const rAlong = alongTip > 0 ? rTip : rHandle;
+  const nx = (alongTip > 0 ? alongTip : alongHandle) / rAlong;
+  const ny = Math.abs(dy) / rPerp;
+  const norm = Math.hypot(nx, ny);
 
-  if (perp > PERP_MAX + 1e-6) {
-    return { onBat: false, proximity: 0, tipSideMiss: alongTip > 0 };
-  }
-  if (alongTip > TIP_MAX + 1e-6) {
-    return { onBat: false, proximity: 0, tipSideMiss: true };
-  }
-  if (alongHandle > HANDLE_MAX + 1e-6) {
-    return { onBat: false, proximity: 0, tipSideMiss: false };
+  if (norm > 1 + 1e-6) {
+    return {
+      onBat: false,
+      proximity: 0,
+      tipSideMiss: alongTip > 0,
+    };
   }
 
-  // Anisotropic “distance” — tip-side and height hurt more than handle-side
-  const tipPenalty = alongTip > 0 ? alongTip / TIP_MAX : 0;
-  const handlePenalty = alongHandle > 0 ? alongHandle / HANDLE_MAX : 0;
-  const perpPenalty = perp / PERP_MAX;
-  const miss = Math.hypot(tipPenalty * 1.15, handlePenalty * 0.75, perpPenalty);
-  const proximity = clamp(1 - miss, 0, 1);
-  return { onBat: proximity > 0.05, proximity, tipSideMiss: alongTip > TIP_MAX * 0.5 };
+  // Soft falloff: edge of the disc still makes contact, center barrels
+  const proximity = clamp(1 - Math.pow(norm, 1.35) * 0.72, 0.28, 1);
+  return {
+    onBat: true,
+    proximity,
+    tipSideMiss: alongTip > rTip * 0.55,
+  };
 }
 
 /**
@@ -200,7 +202,7 @@ export function estimateContact(opts: {
 
   // ---- Ground balls ----
   if (band === "ground") {
-    if (quality >= 0.93) {
+    if (quality >= 0.9) {
       return pack("single", "ground", vertical, quality, launchDeg, exitVeloMph);
     }
     // Force DP whenever first is occupied and there's room for two outs
@@ -218,10 +220,10 @@ export function estimateContact(opts: {
   }
 
   // ---- Line drives ----
-  if (quality >= 0.95) {
+  if (quality >= 0.93) {
     return pack("double", "crush", vertical, quality, launchDeg, exitVeloMph);
   }
-  if (quality >= 0.9) {
+  if (quality >= 0.86) {
     return pack("single", "line", vertical, quality, launchDeg, exitVeloMph);
   }
   return pack("line_out", "line", vertical, quality, launchDeg, exitVeloMph);
@@ -338,14 +340,14 @@ export const CONTACT_OUTCOME_GUIDE = {
   foul: "quality < 0.42",
   ground: {
     band: "launch ≤ 8° (bat under the ball / topped)",
-    single: "quality ≥ 0.93",
+    single: "quality ≥ 0.90",
     double_play: "else if runner on 1st and outs < 2",
     ground_out: "else",
   },
   line: {
     band: "launch 10–24°",
-    double: "quality ≥ 0.95",
-    single: "quality ≥ 0.90",
+    double: "quality ≥ 0.93",
+    single: "quality ≥ 0.86",
     line_out: "else",
   },
   fly: {

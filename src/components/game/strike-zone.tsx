@@ -2,7 +2,12 @@
 
 import type { MouseEvent } from "react";
 import type { PitchType, PlayResult, ZoneCoord } from "@/lib/types";
-import { ballPositionAt, ballScaleAt, exitPositionAt } from "@/lib/flight";
+import {
+  ballPositionAt,
+  ballScaleAt,
+  exitTrackSamples,
+  exitVisualAt,
+} from "@/lib/flight";
 import { PLATE } from "@/lib/zone";
 import { cn } from "@/lib/utils";
 
@@ -83,10 +88,14 @@ export function StrikeZone({
     exitProgress > 0 &&
     (contactPoint || aim || target);
   const exitFrom = contactPoint ?? aim ?? target;
-  const exitPos =
+  const exitVis =
     showingExit && play
-      ? exitPositionAt(exitProgress, exitFrom, play)
+      ? exitVisualAt(exitProgress, exitFrom, play)
       : null;
+  const exitTrack =
+    showingExit && play
+      ? exitTrackSamples(exitFrom, play, exitProgress, 18)
+      : [];
 
   const settledAtPlate =
     ballProgress >= 1 && exitProgress === 0 && !showTarget ? target : null;
@@ -141,10 +150,18 @@ export function StrikeZone({
 
         {aim && (
           <span
-            className="pointer-events-none absolute z-20 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary"
-            style={{ left: `${aim.x * 100}%`, top: `${aim.y * 100}%` }}
-            title="Your swing"
-          />
+            className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-primary/25 shadow-[0_0_18px_oklch(0.82_0.14_75/0.45)]"
+            style={{
+              left: `${aim.x * 100}%`,
+              top: `${aim.y * 100}%`,
+              // ~2 × BARREL_RADIUS of the plate frame (full disc = barrel)
+              width: "24%",
+              height: "18%",
+            }}
+            title="Barrel sweet spot"
+          >
+            <span className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary" />
+          </span>
         )}
 
         {play &&
@@ -205,28 +222,53 @@ export function StrikeZone({
           />
         )}
 
-        {exitPos && play && (
+        {/* Batted-ball track into the field */}
+        {exitTrack.map((node, i) => (
           <span
-            className={cn(
-              "pointer-events-none absolute z-10 rounded-full",
-              play === "home_run" || play === "double"
-                ? "bg-primary shadow-[0_0_20px_oklch(0.82_0.14_75/0.85)]"
-                : "bg-chalk/90",
-            )}
+            key={`exit-track-${i}`}
+            className="pointer-events-none absolute z-[8] rounded-full bg-chalk"
             style={{
-              left: `${exitPos.x * 100}%`,
-              top: `${exitPos.y * 100}%`,
-              width: play === "home_run" ? "1.35rem" : "1.1rem",
-              height: play === "home_run" ? "1.35rem" : "1.1rem",
-              transform: `translate(-50%, -50%) scale(${1 + exitProgress * 0.35})`,
-              opacity: Math.max(
-                0,
-                play === "fly_out" || play === "sac_fly"
-                  ? 1 - exitProgress * 0.55
-                  : 1 - exitProgress * 0.85,
-              ),
+              left: `${node.x * 100}%`,
+              top: `${node.y * 100}%`,
+              width: `${0.28 + node.scale * 0.55}rem`,
+              height: `${0.28 + node.scale * 0.55}rem`,
+              transform: "translate(-50%, -50%)",
+              opacity: node.opacity * (0.15 + (i / Math.max(1, exitTrack.length)) * 0.45),
             }}
           />
+        ))}
+
+        {exitVis && play && (
+          <>
+            {/* Soft turf shadow for depth */}
+            <span
+              className="pointer-events-none absolute z-[9] rounded-full bg-black/50 blur-[2px]"
+              style={{
+                left: `${exitVis.x * 100}%`,
+                top: `${exitVis.shadowY * 100}%`,
+                width: `${1.1 * exitVis.shadowScale}rem`,
+                height: `${0.45 * exitVis.shadowScale}rem`,
+                transform: "translate(-50%, -50%)",
+                opacity: exitVis.shadowOpacity,
+              }}
+            />
+            <span
+              className={cn(
+                "pointer-events-none absolute z-10 rounded-full",
+                play === "home_run" || play === "double"
+                  ? "bg-primary shadow-[0_0_22px_oklch(0.82_0.14_75/0.85)]"
+                  : "bg-chalk shadow-[0_0_14px_oklch(0.84_0.12_78/0.55)]",
+              )}
+              style={{
+                left: `${exitVis.x * 100}%`,
+                top: `${exitVis.y * 100}%`,
+                width: `${1.15 * exitVis.scale}rem`,
+                height: `${1.15 * exitVis.scale}rem`,
+                transform: "translate(-50%, -50%)",
+                opacity: exitVis.opacity,
+              }}
+            />
+          </>
         )}
       </div>
 

@@ -35,7 +35,7 @@ import { isInStrikeZone } from "@/lib/zone";
 import { cn } from "@/lib/utils";
 
 const FLIGHT_MS = 1400;
-const EXIT_MS = 720;
+const EXIT_MS = 1200;
 const LATE_TAKE_GRACE_MS = 900;
 /** Auto-advance between pitches (3–2–1 grow/fade; not on AB end). */
 const BETWEEN_PITCH_MS = 3000;
