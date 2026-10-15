@@ -111,13 +111,13 @@ export function barrelReach(opts: {
   const TIP_MAX = 0.08;
   const HANDLE_MAX = 0.2;
 
-  if (perp > PERP_MAX) {
+  if (perp > PERP_MAX + 1e-6) {
     return { onBat: false, proximity: 0, tipSideMiss: alongTip > 0 };
   }
-  if (alongTip > TIP_MAX) {
+  if (alongTip > TIP_MAX + 1e-6) {
     return { onBat: false, proximity: 0, tipSideMiss: true };
   }
-  if (alongHandle > HANDLE_MAX) {
+  if (alongHandle > HANDLE_MAX + 1e-6) {
     return { onBat: false, proximity: 0, tipSideMiss: false };
   }
 
