@@ -809,7 +809,6 @@ function PitchScreen({
               <p className="text-xs uppercase tracking-[0.25em] text-flood">
                 {count.balls}–{count.strikes} · pitch on the way
               </p>
-              <p className="mt-2 text-sm text-foreground/90">{pitch.approachCue}</p>
             </div>
             <Button
               size="lg"
@@ -827,6 +826,9 @@ function PitchScreen({
 
         {phase === "pitch_result" && lastGrade && (
           <div className="space-y-3 rounded-md bg-secondary/50 p-4">
+            <p className="text-center text-sm italic text-foreground/90">
+              “{pitch.approachCue}”
+            </p>
             <p className="font-[family-name:var(--font-display)] text-2xl tracking-wide text-primary">
               +{lastGrade.pitchScore} pts
             </p>
