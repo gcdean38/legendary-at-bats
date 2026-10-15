@@ -3,6 +3,10 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  BattedBallField,
+  shouldShowFieldFlight,
+} from "@/components/game/batted-ball-field";
 import { StrikeZone } from "@/components/game/strike-zone";
 import { ScoreBug } from "@/components/game/score-bug";
 import { LEGENDARY_AT_BATS } from "@/data/legendary-at-bats";
@@ -759,21 +763,37 @@ function PitchScreen({
         </div>
       </header>
 
-      <div className="relative my-1">
+      <div className="relative my-1 space-y-3">
         <StrikeZone
           interactive={live}
           live={live}
           target={pitch.location}
           pitchType={pitch.type}
+          bats={atBat.batter.bats}
           aim={aim}
           showTarget={phase === "pitch_result"}
           ballProgress={live ? Math.max(ballProgress, 0.02) : ballProgress}
           exitProgress={phase === "pitch_result" ? exitProgress : 0}
           play={lastGrade?.play ?? null}
-          contactPoint={aim}
+          contactPoint={pitch.location}
+          suppressExitOverlay={
+            phase === "pitch_result" &&
+            shouldShowFieldFlight(lastGrade?.play)
+          }
           onAim={onAim}
           startedAt={flightStart}
         />
+        {phase === "pitch_result" &&
+          lastGrade &&
+          shouldShowFieldFlight(lastGrade.play) && (
+            <BattedBallField
+              play={lastGrade.play}
+              progress={Math.max(exitProgress, 0.08)}
+              contact={pitch.location}
+              bats={atBat.batter.bats}
+              className="anim-rise"
+            />
+          )}
         {(windup || !live) &&
           continueInSec != null &&
           continueInSec >= 1 && (

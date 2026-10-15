@@ -1,5 +1,9 @@
 import type { PitchType, PlayResult, ZoneCoord } from "@/lib/types";
-import { pathStyleForPlay, type ExitPathStyle } from "@/lib/contact";
+import {
+  pathStyleForPlay,
+  type BatterHand,
+  type ExitPathStyle,
+} from "@/lib/contact";
 
 /**
  * Catcher's-eye release: ball starts small near the heart of the frame
@@ -96,6 +100,23 @@ export type ExitVisual = {
 };
 
 /**
+ * Catcher's view spray: -1 = left (LF/3B), +1 = right (RF/1B).
+ * RHB pulls left; LHB pulls right. Inside pitches amplify pull;
+ * outside pitches can spray opposite field.
+ */
+export function sprayBias(
+  contact: ZoneCoord,
+  bats: BatterHand = "R",
+): number {
+  const pullSign = bats === "L" ? 1 : -1; // switch hits as RHB
+  // + when pitch is inside for this batter (left for RHB, right for LHB)
+  const insideAmt = pullSign * (contact.x - 0.5);
+  // Base pull tendency + location (inside → more pull, outside → oppo)
+  const bias = pullSign * (0.45 + insideAmt * 1.4);
+  return Math.max(-1, Math.min(1, bias));
+}
+
+/**
  * Batted-ball path into the field (catcher looking out).
  * Progress 0 = contact at the plate; 1 = deep into the play / faded out.
  */
@@ -103,86 +124,91 @@ export function exitPositionAt(
   progress: number,
   contact: ZoneCoord,
   play: PlayResult,
+  bats: BatterHand = "R",
 ): ZoneCoord {
-  return exitVisualAt(progress, contact, play);
+  return exitVisualAt(progress, contact, play, bats);
 }
 
 /**
- * Perspective flight: ball climbs/carries into the field, shrinks with
- * depth, and fades — with a soft ground shadow for a 3D-ish track feel.
+ * Perspective flight: carries into the field with pull/oppo spray from
+ * contact location + handedness, shrinks with depth, fades out.
  */
 export function exitVisualAt(
   progress: number,
   contact: ZoneCoord,
   play: PlayResult,
+  bats: BatterHand = "R",
 ): ExitVisual {
   const p = clamp01(progress);
   const style: ExitPathStyle = pathStyleForPlay(play);
+  const spray = sprayBias(contact, bats);
 
-  let x = contact.x;
-  let y = contact.y;
-  let height = 0; // lift above "turf" for shadow separation
-  let depth = p; // how far into the field (drives shrink)
+  let lateral = 0; // multiplied by spray
+  let away = 0; // negative y = into the field / up the frame
+  let height = 0;
+  let depth = p;
 
   switch (style) {
     case "hr":
-      x = contact.x + 0.12 * p + 0.35 * p * p;
-      y = contact.y - 0.35 * p - 1.35 * p * p;
+      lateral = 0.55 * p + 0.25 * p * p;
+      away = 0.45 * p + 1.1 * p * p;
       height = 0.55 * Math.sin(p * Math.PI * 0.85);
       depth = p;
       break;
     case "double":
-      x = contact.x + 0.55 * p + 0.35 * p * p;
-      y = contact.y - 0.55 * p - 0.35 * p * p;
+      lateral = 0.7 * p + 0.2 * p * p;
+      away = 0.55 * p + 0.35 * p * p;
       height = 0.28 * Math.sin(p * Math.PI * 0.9);
       depth = p;
       break;
     case "liner":
-      x = contact.x + 0.45 * p + 0.25 * p * p;
-      y = contact.y - 0.35 * p + 0.15 * p * p;
+      lateral = 0.5 * p + 0.15 * p * p;
+      away = 0.4 * p + 0.1 * p * p;
       height = 0.12 * (1 - p);
       depth = Math.min(1, p * 1.15);
       break;
     case "ground_single":
-      x = contact.x + 0.5 * p + 0.2 * p * p;
-      y = contact.y + 0.06 * Math.sin(p * Math.PI * 2) + 0.08 * p;
+      lateral = 0.55 * p + 0.12 * p * p;
+      away = 0.22 * p; // into the infield, not down the frame
       height = 0.04 * Math.abs(Math.sin(p * Math.PI * 2));
       depth = p * 0.85;
       break;
     case "fly_out":
-      x = contact.x + 0.18 * p + 0.12 * p * p;
-      y = contact.y - 0.95 * Math.sin(p * Math.PI * 0.92) + 0.2 * p;
+      lateral = 0.35 * p;
+      away = 0.75 * Math.sin(p * Math.PI * 0.92);
       height = 0.45 * Math.sin(p * Math.PI);
       depth = p;
       break;
     case "sac":
-      x = contact.x + 0.28 * p + 0.15 * p * p;
-      y = contact.y - 0.8 * Math.sin(p * Math.PI * 0.88) + 0.12 * p;
+      lateral = 0.4 * p;
+      away = 0.65 * Math.sin(p * Math.PI * 0.88);
       height = 0.38 * Math.sin(p * Math.PI * 0.9);
       depth = p;
       break;
     case "ground_out":
-      x = contact.x + 0.22 * p + 0.12 * p * p;
-      y = contact.y + 0.15 * p + 0.2 * p * p;
+      lateral = 0.32 * p + 0.08 * p * p;
+      away = 0.18 * p; // weak roller into the dirt ahead
       height = 0.03 * (1 - p);
       depth = p * 0.7;
       break;
     case "whiff":
-      x = contact.x + 0.03 * p;
-      y = contact.y + 0.55 * p;
+      lateral = 0.02 * p;
+      away = -0.45 * p; // drops past the plate
       height = 0;
       depth = p * 0.4;
       break;
     case "take":
     default:
-      x = contact.x;
-      y = contact.y + 0.5 * p;
+      lateral = 0;
+      away = -0.45 * p;
       height = 0;
       depth = p * 0.3;
       break;
   }
 
-  // Shrink into the field + fade as it carries
+  const x = contact.x + spray * lateral;
+  const y = contact.y - away;
+
   const scale = Math.max(0.18, 1 - depth * 0.78);
   const opacity = Math.max(0, 1 - Math.pow(p, 1.15) * 0.95);
   const shadowY = y + 0.04 + height * 0.55;
@@ -206,12 +232,13 @@ export function exitTrackSamples(
   play: PlayResult,
   upToProgress: number,
   count = 16,
+  bats: BatterHand = "R",
 ): ExitVisual[] {
   const end = clamp01(upToProgress);
   if (end <= 0.02) return [];
   return Array.from({ length: count }, (_, i) => {
     const t = ((i + 1) / count) * end;
-    return exitVisualAt(t, contact, play);
+    return exitVisualAt(t, contact, play, bats);
   });
 }
 
