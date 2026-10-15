@@ -969,9 +969,8 @@ function ResultScreen({
           {"★".repeat(session.stars)}
           {"☆".repeat(3 - session.stars)}
         </p>
-        <p className="mt-2 text-sm font-medium text-foreground">{starsBlurb}</p>
-        <p className="mt-1 text-xs uppercase tracking-[0.2em] text-muted-foreground">
-          {pending ? "Finalizing…" : "3 win · 2 came through · 1 failed"}
+        <p className="mt-2 text-sm font-medium text-foreground">
+          {pending ? "Finalizing…" : starsBlurb}
         </p>
       </div>
 
