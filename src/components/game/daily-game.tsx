@@ -25,9 +25,12 @@ import {
   advanceInning,
   atBatFromInning,
   createInning,
+  createRewriteInning,
   inningSummary,
   isInningOver,
   isWalkOff,
+  shouldOfferRewriteContinue,
+  type AbLogEntry,
   type InningState,
 } from "@/lib/inning";
 import type {
@@ -399,7 +402,11 @@ export function DailyGame() {
       setSession(final);
 
       if (inningRef.current) {
-        const next = advanceInning(inningRef.current, final);
+        const next = advanceInning(
+          inningRef.current,
+          final,
+          atBat.batter,
+        );
         inningRef.current = next;
         setInningSnap(next);
 
@@ -418,11 +425,34 @@ export function DailyGame() {
           }, INNING_POP_MS);
           return;
         }
+
+        setInningPop(null);
+        setPhase("result");
+        return;
+      }
+
+      // Deep-hole legendary: offer to keep rewriting history
+      if (shouldOfferRewriteContinue(atBat, final)) {
+        setInningPop(null);
+        setPhase("rewrite_offer");
+        return;
       }
 
       setInningPop(null);
       setPhase("result");
     });
+  }
+
+  function acceptRewriteContinue() {
+    if (!atBat || !session) return;
+    const state = createRewriteInning(atBat, session);
+    inningRef.current = state;
+    setInningSnap(state);
+    selectAtBat(atBatFromInning(state), "inning", { skipSituation: true });
+  }
+
+  function declineRewriteContinue() {
+    setPhase("result");
   }
 
   function advanceAfterFeedback() {
@@ -575,6 +605,14 @@ export function DailyGame() {
               onAim={onAim}
             />
           )}
+        {phase === "rewrite_offer" && atBat && session && (
+          <RewriteOfferScreen
+            atBat={atBat}
+            session={session}
+            onContinue={acceptRewriteContinue}
+            onStop={declineRewriteContinue}
+          />
+        )}
         {phase === "result" && atBat && session && (
           <ResultScreen
             atBat={atBat}
@@ -587,6 +625,8 @@ export function DailyGame() {
             inningLine={
               isInning && inningSnap ? inningSummary(inningSnap) : null
             }
+            abLog={isInning && inningSnap ? inningSnap.abLog : null}
+            inningKind={isInning && inningSnap ? inningSnap.kind : null}
             onShare={shareResult}
             onReplay={() =>
               isInning ? startInning() : selectAtBat(atBat, playMode)
@@ -996,6 +1036,55 @@ function PitchScreen({
   );
 }
 
+function RewriteOfferScreen({
+  atBat,
+  session,
+  onContinue,
+  onStop,
+}: {
+  atBat: LegendaryAtBat;
+  session: AtBatSessionResult;
+  onContinue: () => void;
+  onStop: () => void;
+}) {
+  return (
+    <section className="anim-rise flex min-h-[85dvh] flex-col justify-between gap-8 py-4">
+      <ScoreBug
+        away={session.board.away}
+        home={session.board.home}
+        inning={atBat.inning}
+        outs={session.board.outs}
+        count={session.board.count}
+        bases={session.board.bases}
+      />
+      <div className="space-y-4 text-center">
+        <p className="text-xs uppercase tracking-[0.25em] text-flood">
+          {atBat.codename}
+        </p>
+        <h2 className="font-[family-name:var(--font-display)] text-4xl tracking-wide text-chalk sm:text-5xl">
+          You’re on the verge of rewriting history
+        </h2>
+        <p className="text-sm text-flood">
+          {playResultLabel(session.finalPlay)}
+          {session.runsScored > 0 ? ` · ${session.runsScored} R` : ""}
+        </p>
+        <p className="mx-auto max-w-sm text-sm text-muted-foreground">
+          Keep batting with this pitcher’s mix until you take the lead — or stop
+          here and take the legendary ending.
+        </p>
+      </div>
+      <div className="grid gap-2">
+        <Button size="lg" className="h-12 font-semibold" onClick={onContinue}>
+          Keep rewriting history
+        </Button>
+        <Button size="lg" variant="secondary" className="h-11" onClick={onStop}>
+          Stop here
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 function ResultScreen({
   atBat,
   session,
@@ -1005,6 +1094,8 @@ function ResultScreen({
   inningOver,
   walkedOff,
   inningLine,
+  abLog,
+  inningKind,
   onShare,
   onReplay,
   onContinueInning,
@@ -1019,6 +1110,8 @@ function ResultScreen({
   inningOver: boolean;
   walkedOff: boolean;
   inningLine: string | null;
+  abLog: AbLogEntry[] | null;
+  inningKind: "bot9" | "rewrite" | null;
   onShare: () => void;
   onReplay: () => void;
   onContinueInning?: () => void;
@@ -1038,7 +1131,9 @@ function ResultScreen({
   const inningHeadline = !isInning
     ? session.endingTitle
     : walkedOff
-      ? "Walk-off!"
+      ? inningKind === "rewrite"
+        ? "History rewritten"
+        : "Walk-off!"
       : inningOver
         ? "Ballgame"
         : session.endingTitle;
@@ -1098,36 +1193,66 @@ function ResultScreen({
         </div>
       )}
 
-      <div className="space-y-2">
-        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-          Pitch sequence
-        </p>
-        <ul className="space-y-1.5">
-          {session.grades.map((g, i) => (
-            <li
-              key={g.pitchId}
-              className={cn(
-                "flex items-center justify-between rounded-md bg-secondary/40 px-3 py-2 text-sm font-medium",
-                pitchSequenceColor(g.event),
-              )}
-            >
-              <span>
-                P{i + 1} · {pitchTypeLabel(g.pitchType)} · {g.speedMph} mph
-              </span>
-              <span className="text-xs tabular-nums opacity-90">
-                {g.countBefore.balls}–{g.countBefore.strikes}
-                <span className="mx-1.5 opacity-50">·</span>
-                {playResultLabel(g.play)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
+      {isInning && abLog ? (
+        <div className="space-y-2">
+          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+            At-bat log
+          </p>
+          <ul className="space-y-1.5">
+            {abLog.map((entry) => (
+              <li
+                key={`${entry.batterIndex}-${entry.line}`}
+                className={cn(
+                  "flex items-center justify-between rounded-md bg-secondary/40 px-3 py-2 text-sm font-medium",
+                  entry.runsScored > 0 ? "text-flood" : "text-chalk",
+                )}
+              >
+                <span>
+                  B{entry.batterIndex} · {entry.batterLabel}
+                </span>
+                <span className="text-xs tabular-nums opacity-90">
+                  {entry.line}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+            Pitch sequence
+          </p>
+          <ul className="space-y-1.5">
+            {session.grades.map((g, i) => (
+              <li
+                key={g.pitchId}
+                className={cn(
+                  "flex items-center justify-between rounded-md bg-secondary/40 px-3 py-2 text-sm font-medium",
+                  pitchSequenceColor(g.event),
+                )}
+              >
+                <span>
+                  P{i + 1} · {pitchTypeLabel(g.pitchType)} · {g.speedMph} mph
+                </span>
+                <span className="text-xs tabular-nums opacity-90">
+                  {g.countBefore.balls}–{g.countBefore.strikes}
+                  <span className="mx-1.5 opacity-50">·</span>
+                  {playResultLabel(g.play)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="mt-auto grid gap-2">
         {isInning && onContinueInning ? (
           <Button size="lg" className="h-12" onClick={onContinueInning}>
-            {inningOver ? "New Bottom 9" : "Next batter"}
+            {inningOver
+              ? inningKind === "rewrite"
+                ? "Bottom of the 9th"
+                : "New Bottom 9"
+              : "Next batter"}
           </Button>
         ) : (
           <Button size="lg" className="h-12" onClick={onShare}>
