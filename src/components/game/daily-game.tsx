@@ -33,6 +33,7 @@ import {
   type AbLogEntry,
   type InningState,
 } from "@/lib/inning";
+import { runnersLabel } from "@/lib/situation";
 import type {
   AtBatEndReason,
   AtBatSessionResult,
@@ -41,6 +42,7 @@ import type {
   LegendaryAtBat,
   PitchEvent,
   PitchResultGrade,
+  SeedPitch,
   ZoneCoord,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -67,8 +69,6 @@ const EXIT_MS = 1200;
 const LATE_TAKE_GRACE_MS = 450;
 /** Auto-advance between pitches (3–2–1 grow/fade; not on AB end). */
 const BETWEEN_PITCH_MS = 3000;
-/** Bot 9 mid-inning: show outcome pop, then next batter. */
-const INNING_POP_MS = 1500;
 
 export function DailyGame() {
   const [phase, setPhase] = useState<GamePhase>("loading");
@@ -82,8 +82,13 @@ export function DailyGame() {
   const [inningPop, setInningPop] = useState<{
     line: string;
     sub: string;
+    runners: string;
+    outs: number;
+    scoreLine: string;
   } | null>(null);
   const [pitchCursor, setPitchCursor] = useState(0);
+  /** Locked pitch for this plate appearance — never re-roll on re-render. */
+  const [livePitch, setLivePitch] = useState<SeedPitch | null>(null);
   const [count, setCount] = useState<CountState>({ balls: 0, strikes: 0 });
   const [grades, setGrades] = useState<PitchResultGrade[]>([]);
   const [lastGrade, setLastGrade] = useState<PitchResultGrade | null>(null);
@@ -111,10 +116,7 @@ export function DailyGame() {
   const inningRef = useRef<InningState | null>(null);
   const inningPopTimerRef = useRef<number | null>(null);
 
-  const currentPitch =
-    atBat && atBat.pitches.length > 0
-      ? pitchAtCursor(atBat.pitches, pitchCursor)
-      : null;
+  const currentPitch = livePitch;
   const extended =
     !!atBat &&
     playMode !== "inning" &&
@@ -149,6 +151,14 @@ export function DailyGame() {
       window.clearTimeout(inningPopTimerRef.current);
       inningPopTimerRef.current = null;
     }
+  }
+
+  /** Pick once per cursor index — pitchAtCursor uses RNG after the script. */
+  function lockPitchForCursor(ab: LegendaryAtBat, cursor: number) {
+    const pitch = pitchAtCursor(ab.pitches, cursor);
+    setLivePitch(pitch);
+    flightMsRef.current = flightMsForPitch(pitch.type);
+    return pitch;
   }
 
   // 3–2–1 lives on the front of a pitch (windup), never after a play.
@@ -249,6 +259,7 @@ export function DailyGame() {
     setBallProgress(0);
     setExitProgress(0);
     setCopied(false);
+    setLivePitch(null);
   }
 
   function selectAtBat(
@@ -261,6 +272,7 @@ export function DailyGame() {
     setAtBat(next);
     setPlayMode(mode);
     setDateKey(mode === "daily" ? utcDateKey(new Date()) : next.codename);
+    lockPitchForCursor(next, 0);
     setPhase(opts?.skipSituation ? "pitch_windup" : "situation");
     if (!howToSeenRef.current) {
       howToSeenRef.current = true;
@@ -296,10 +308,11 @@ export function DailyGame() {
     setBallProgress(0);
     setExitProgress(0);
     pendingEndRef.current = null;
-    const pitch = atBat
-      ? pitchAtCursor(atBat.pitches, cursorRef.current)
-      : null;
-    flightMsRef.current = pitch ? flightMsForPitch(pitch.type) : 1020;
+    if (atBat && !livePitch) {
+      lockPitchForCursor(atBat, cursorRef.current);
+    } else if (livePitch) {
+      flightMsRef.current = flightMsForPitch(livePitch.type);
+    }
     setPhase("pitch_live");
     startFlightLoop();
   }
@@ -314,6 +327,9 @@ export function DailyGame() {
     setBallProgress(0);
     setExitProgress(0);
     pendingEndRef.current = null;
+    if (atBat) {
+      lockPitchForCursor(atBat, cursorRef.current);
+    }
     setPhase("pitch_windup");
   }
 
@@ -417,15 +433,22 @@ export function DailyGame() {
           final.runsScored > 0 ? ` · ${final.runsScored} R` : ""
         }`;
 
-        // Mid-inning: bug pop → auto next batter (skip full result screen)
+        // Mid-inning: situation recap + Continue (no auto-advance)
         if (!isInningOver(next)) {
           clearInningPopTimer();
-          setInningPop({ line, sub: final.endingTitle });
-          inningPopTimerRef.current = window.setTimeout(() => {
-            inningPopTimerRef.current = null;
-            setInningPop(null);
-            continueInning();
-          }, INNING_POP_MS);
+          const deficit = next.battingHome
+            ? Math.max(0, next.away.runs - next.home.runs)
+            : Math.max(0, next.home.runs - next.away.runs);
+          setInningPop({
+            line,
+            sub: final.endingTitle,
+            runners: runnersLabel(next.bases),
+            outs: next.outs,
+            scoreLine:
+              deficit === 0
+                ? `${next.away.abbr} ${next.away.runs}–${next.home.abbr} ${next.home.runs} · tied`
+                : `${next.away.abbr} ${next.away.runs}–${next.home.abbr} ${next.home.runs} · down ${deficit}`,
+          });
           return;
         }
 
@@ -474,7 +497,7 @@ export function DailyGame() {
     const nextCursor = cursorRef.current + 1;
     cursorRef.current = nextCursor;
     setPitchCursor(nextCursor);
-    // Next pitch: 3–2–1 on the windup (front), then it flies
+    // beginPitchWindup locks the next pitch once (RNG-safe)
     beginPitchWindup();
   }
 
@@ -532,17 +555,35 @@ export function DailyGame() {
 
       {inningPop && (
         <div
-          className="pointer-events-none fixed inset-x-0 top-[4.5rem] z-40 flex justify-center px-4"
-          role="status"
-          aria-live="polite"
+          className="fixed inset-0 z-40 flex items-end justify-center bg-background/70 p-4 backdrop-blur-[2px] sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Between batters"
         >
-          <div className="anim-rise w-full max-w-lg rounded-md border border-flood/40 bg-card/95 px-4 py-3 shadow-[0_8px_28px_oklch(0.1_0.02_155/0.55)] backdrop-blur-sm">
-            <p className="font-[family-name:var(--font-display)] text-2xl tracking-wide text-flood">
+          <div className="anim-rise w-full max-w-md rounded-md border border-flood/35 bg-card/95 p-5 shadow-[0_12px_40px_oklch(0.1_0.02_155/0.55)]">
+            <p className="font-[family-name:var(--font-display)] text-3xl tracking-wide text-flood">
               {inningPop.line}
             </p>
-            <p className="mt-0.5 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+            <p className="mt-1 text-xs uppercase tracking-[0.2em] text-muted-foreground">
               {inningPop.sub}
             </p>
+            <div className="mt-4 space-y-1.5 rounded-md bg-secondary/50 px-3 py-3 text-sm">
+              <p className="text-chalk">{inningPop.scoreLine}</p>
+              <p className="text-chalk">
+                {inningPop.outs} out{inningPop.outs === 1 ? "" : "s"} ·{" "}
+                {inningPop.runners}
+              </p>
+            </div>
+            <Button
+              size="lg"
+              className="mt-5 h-12 w-full font-semibold"
+              onClick={() => {
+                setInningPop(null);
+                continueInning();
+              }}
+            >
+              Continue
+            </Button>
           </div>
         </div>
       )}
