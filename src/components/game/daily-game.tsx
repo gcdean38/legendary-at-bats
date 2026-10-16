@@ -965,7 +965,9 @@ function CatalogScreen({
         </Button>
       </div>
       <ul className="flex flex-1 flex-col gap-2 overflow-y-auto pb-4">
-        {LEGENDARY_AT_BATS.map((ab) => (
+        {[...LEGENDARY_AT_BATS]
+          .sort((a, b) => b.year - a.year || b.id.localeCompare(a.id))
+          .map((ab) => (
           <li key={ab.id}>
             <button
               type="button"
