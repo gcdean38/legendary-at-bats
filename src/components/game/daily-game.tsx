@@ -60,7 +60,7 @@ export function DailyGame() {
   const [howToOpen, setHowToOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const flightStart = useRef(0);
-  const flightMsRef = useRef(1400);
+  const flightMsRef = useRef(1200);
   const rafRef = useRef<number | null>(null);
   const decidedRef = useRef(false);
   const gradesRef = useRef<PitchResultGrade[]>([]);
@@ -220,7 +220,7 @@ export function DailyGame() {
     const pitch = atBat
       ? pitchAtCursor(atBat.pitches, cursorRef.current)
       : null;
-    flightMsRef.current = pitch ? flightMsForPitch(pitch.type) : 1400;
+    flightMsRef.current = pitch ? flightMsForPitch(pitch.type) : 1200;
     setPhase("pitch_live");
     startFlightLoop();
   }
@@ -809,6 +809,7 @@ function PitchScreen({
           ballProgress={live ? Math.max(ballProgress, 0.02) : ballProgress}
           exitProgress={phase === "pitch_result" ? exitProgress : 0}
           play={lastGrade?.play ?? null}
+          exitKind={lastGrade?.exitKind ?? null}
           timingMs={lastGrade?.timingMs}
           windowMs={flightMsForPitch(pitch.type)}
           onAim={onAim}

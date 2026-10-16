@@ -44,40 +44,6 @@ function timingFactor(elapsedMs: number, windowMs: number) {
   return clamp(1 - delta / tolerance, 0, 1);
 }
 
-/**
- * Map bat vertical mishit (-1…+1) → launch angle with bands that match
- * how we classify plays (so you never see an 8° “ground out”).
- */
-function launchFromVertical(vertical: number): {
-  launchDeg: number;
-  band: "ground" | "line" | "fly";
-} {
-  // Bands match real BIP taxonomy so you never see e.g. 8° labeled a grounder:
-  // ground ≤ 5°, line 8–24°, fly ≥ 25°.
-  if (vertical < -0.1) {
-    // Map vertical -1…-0.1 → launch -20°…5°
-    const t = (vertical + 1) / 0.9;
-    return {
-      launchDeg: Math.round(-20 + clamp(t, 0, 1) * 25),
-      band: "ground",
-    };
-  }
-  if (vertical > 0.1) {
-    // Map vertical 0.1…1 → launch 25°…48°
-    const t = (vertical - 0.1) / 0.9;
-    return {
-      launchDeg: Math.round(25 + clamp(t, 0, 1) * 23),
-      band: "fly",
-    };
-  }
-  // Map vertical -0.1…0.1 → launch 8°…24°
-  const t = (vertical + 0.1) / 0.2;
-  return {
-    launchDeg: Math.round(8 + clamp(t, 0, 1) * 16),
-    band: "line",
-  };
-}
-
 /** Quality 0–1 → stylized exit velo. Barrels approach ~105+. */
 function exitVeloFromQuality(quality: number): number {
   return Math.round(55 + quality * 55);
@@ -153,9 +119,11 @@ export function barrelReach(opts: {
 }
 
 /**
- * Stylized contact → play result (deterministic thresholds, not RNG odds).
- * Hits must be clearly squared up; ordinary solid contact becomes outs.
- * Force-situation grounders with <2 outs become double plays.
+ * Cut-and-dry vertical contact model (y grows downward):
+ * - Above ball midpoint → grounder only (single / GIDP / ground out)
+ * - Flush on the midline (click in the ball) → home run
+ * - Midline, not flush → line drive (double / single / line out)
+ * - Below the ball → fly out (sac fly if R3)
  */
 export function estimateContact(opts: {
   pitchLoc: ZoneCoord;
@@ -172,29 +140,34 @@ export function estimateContact(opts: {
   const reach = barrelReach({ pitchLoc, aim, bats });
   const euclid = dist(aim, pitchLoc);
 
-  // y grows downward: aim below the ball (higher y) = undercut = fly
-  // aim above the ball (lower y) = on the top half = topped / mishit
   const dy = aim.y - pitchLoc.y;
   const vertical = clamp(dy / 0.18, -1, 1);
   const proximity = reach.proximity;
   let quality = clamp(proximity * 0.55 + tFactor * 0.45, 0, 1);
-  let { launchDeg, band } = launchFromVertical(vertical);
 
-  // Top half of the ball (bat above center) — never a barrel HR
-  const onTopHalf = dy < -0.01;
-  // True flush: click in the ball, timed, and at/under the equator
+  // Vertical bands relative to the ball's equator
+  const aboveMid = dy < -0.008;
+  const belowBall = dy > 0.012;
+  const onMidline = !aboveMid && !belowBall;
   const flush =
+    onMidline &&
     euclid <= BALL_RADIUS &&
     reach.onBat &&
-    tFactor >= 0.4 &&
-    !onTopHalf;
-  if (flush) {
-    quality = Math.max(quality, 0.97);
-  }
+    tFactor >= 0.35;
+
+  if (flush) quality = Math.max(quality, 0.97);
+
+  // Launch labels match the band (display only — play is band-driven)
+  const launchDeg = aboveMid
+    ? Math.round(clamp(-12 + quality * 14, -20, 5))
+    : belowBall
+      ? Math.round(clamp(28 + quality * 12, 28, 45))
+      : flush
+        ? 32
+        : Math.round(clamp(10 + quality * 12, 8, 24));
 
   let exitVeloMph = exitVeloFromQuality(quality);
 
-  // Sweet-spot area misses the ball entirely → whiff (hard rule)
   if (!reach.onBat) {
     return {
       vertical,
@@ -208,7 +181,7 @@ export function estimateContact(opts: {
     };
   }
 
-  if (quality < 0.2 || (euclid > 0.36 && tFactor < 0.4)) {
+  if (quality < 0.22) {
     return {
       vertical,
       quality,
@@ -221,57 +194,25 @@ export function estimateContact(opts: {
     };
   }
 
-  if (quality < 0.42) {
+  if (quality < 0.4) {
     return {
       vertical,
       quality,
       launchDeg,
       exitVeloMph,
       play: "foul",
-      exitKind: "ground",
+      exitKind: aboveMid ? "ground" : "line",
       endsAb: false,
       event: "foul",
     };
   }
 
-  // Top-of-ball contact → lazy fly out (not a HR, even if "in the disc")
-  if (onTopHalf) {
-    const popLaunch = Math.max(32, launchDeg < 8 ? 36 : launchDeg);
-    return pack(
-      "fly_out",
-      "line",
-      vertical,
-      Math.min(quality, 0.72),
-      popLaunch,
-      exitVeloFromQuality(Math.min(quality, 0.72)),
-    );
-  }
-
-  // Homers ONLY on true flush (in the ball, at/under center) — not from
-  // launch-angle thresholds alone.
-  if (flush) {
-    const hrLaunch = Math.max(launchDeg, 30);
-    exitVeloMph = Math.max(exitVeloMph, exitVeloFromQuality(1));
-    return pack("home_run", "crush", vertical, quality, hrLaunch, exitVeloMph);
-  }
-
-  // ---- Flies ----
-  if (band === "fly") {
-    if (bases.third && outs < 2 && quality >= 0.5 && quality < 0.94) {
-      return pack("sac_fly", "line", vertical, quality, launchDeg, exitVeloMph);
-    }
-    if (quality >= 0.92 && launchDeg < 32) {
-      return pack("double", "line", vertical, quality, launchDeg, exitVeloMph);
-    }
-    return pack("fly_out", "line", vertical, quality, launchDeg, exitVeloMph);
-  }
-
-  // ---- Ground balls ----
-  if (band === "ground") {
-    if (quality >= 0.9) {
+  // ---- Above midpoint → ground ball only ----
+  if (aboveMid) {
+    // Through the hole on solid contact
+    if (quality >= 0.82) {
       return pack("single", "ground", vertical, quality, launchDeg, exitVeloMph);
     }
-    // Force DP whenever first is occupied and there's room for two outs
     if (bases.first && outs < 2) {
       return pack(
         "double_play",
@@ -285,11 +226,26 @@ export function estimateContact(opts: {
     return pack("ground_out", "ground", vertical, quality, launchDeg, exitVeloMph);
   }
 
-  // ---- Line drives ----
-  if (quality >= 0.93) {
+  // ---- Below the ball → fly out ----
+  if (belowBall) {
+    if (bases.third && outs < 2 && quality >= 0.55) {
+      return pack("sac_fly", "line", vertical, quality, launchDeg, exitVeloMph);
+    }
+    return pack("fly_out", "line", vertical, quality, launchDeg, exitVeloMph);
+  }
+
+  // ---- Midline ----
+  // Flush in the ball → home run
+  if (flush) {
+    exitVeloMph = Math.max(exitVeloMph, exitVeloFromQuality(1));
+    return pack("home_run", "crush", vertical, quality, launchDeg, exitVeloMph);
+  }
+
+  // Otherwise line drive: gapper / single / line out
+  if (quality >= 0.88) {
     return pack("double", "crush", vertical, quality, launchDeg, exitVeloMph);
   }
-  if (quality >= 0.86) {
+  if (quality >= 0.72) {
     return pack("single", "line", vertical, quality, launchDeg, exitVeloMph);
   }
   return pack("line_out", "line", vertical, quality, launchDeg, exitVeloMph);
@@ -368,14 +324,18 @@ export type ExitPathStyle =
   | "whiff"
   | "take";
 
-export function pathStyleForPlay(play: PlayResult): ExitPathStyle {
+export function pathStyleForPlay(
+  play: PlayResult,
+  exitKind?: ExitKind,
+): ExitPathStyle {
   switch (play) {
     case "home_run":
       return "hr";
     case "double":
       return "double";
     case "single":
-      return "ground_single";
+      // Midline singles are liners; above-mid singles stay grounders
+      return exitKind === "line" ? "liner" : "ground_single";
     case "sac_fly":
       return "sac";
     case "fly_out":
@@ -402,29 +362,23 @@ export function pathStyleForPlay(play: PlayResult): ExitPathStyle {
  * Deterministic thresholds — there is no RNG roll.
  */
 export const CONTACT_OUTCOME_GUIDE = {
-  whiff:
-    "sweet-spot oval misses the ball entirely (no overlap), or quality < 0.2",
-  foul: "quality < 0.42",
-  flush_hr:
-    "click inside the ball disc, at/under center (not top half), timing ≥ 0.4 → home run (only HR path)",
-  top_half: "aim above ball center → fly out (never HR)",
-  ground: {
-    band: "launch ≤ 5° (bat over the ball / topped)",
-    single: "quality ≥ 0.90",
+  whiff: "sweet-spot misses the ball, or quality < 0.22",
+  foul: "quality < 0.40",
+  above_mid: {
+    band: "aim above ball midpoint → grounder only",
+    single: "quality ≥ 0.82 (through the hole)",
     double_play: "else if runner on 1st and outs < 2",
     ground_out: "else",
   },
-  line: {
-    band: "launch 8–24°",
-    double: "quality ≥ 0.93",
-    single: "quality ≥ 0.86",
+  midline: {
+    flush_hr: "click inside the ball disc on the midline → home run",
+    double: "else quality ≥ 0.88 → gap double",
+    single: "else quality ≥ 0.72 → single",
     line_out: "else",
   },
-  fly: {
-    band: "launch ≥ 25°",
-    home_run: "quality ≥ 0.94 and launch ≥ 28° (or flush rule above)",
-    sac_fly: "R3, outs < 2, quality 0.50–0.94",
-    double: "quality ≥ 0.92 and launch < 32°",
+  below_ball: {
+    band: "aim below the ball → fly out",
+    sac_fly: "R3, outs < 2, quality ≥ 0.55",
     fly_out: "else",
   },
   exitVelo: "mph ≈ 55 + quality×55 (flavor only)",

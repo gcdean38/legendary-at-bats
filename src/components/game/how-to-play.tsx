@@ -54,9 +54,11 @@ export function HowToPlayOverlay({ onDismiss }: Props) {
               3
             </span>
             <span>
-              <strong className="text-chalk">Flush</strong> (center / under the
-              ball) can go yard. Top of the ball is a fly out. Miss the ball
-              entirely and it’s a whiff.
+              <strong className="text-chalk">Above</strong> the ball’s midpoint
+              = grounder. <strong className="text-chalk">Flush</strong> on the
+              middle = homer. Midline miss = liner.{" "}
+              <strong className="text-chalk">Under</strong> the ball = fly out.
+              Miss entirely = whiff.
             </span>
           </li>
           <li className="flex gap-3">

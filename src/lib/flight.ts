@@ -1,4 +1,4 @@
-import type { PitchType, PlayResult, ZoneCoord } from "@/lib/types";
+import type { ExitKind, PitchType, PlayResult, ZoneCoord } from "@/lib/types";
 import {
   pathStyleForPlay,
   type BatterHand,
@@ -30,18 +30,19 @@ export function pitchFamily(type: PitchType): PitchFamily {
 }
 
 /** Baseline flight window for breaking stuff — FF faster, CH slower. */
-export const FLIGHT_MS_BREAKING = 1400;
+export const FLIGHT_MS_BREAKING = 1200;
 
 /**
  * How long the pitch takes to reach the plate (ms).
- * Fastballs a bit quicker, changeups a bit slower, breaking held.
+ * Fastballs quicker, changeups slower, breaking in between.
+ * Ticked ~15% faster than the first playtest pass.
  */
 export function flightMsForPitch(type: PitchType): number {
   switch (pitchFamily(type)) {
     case "fastball":
-      return 1180;
+      return 1000;
     case "offspeed":
-      return 1680;
+      return 1420;
     case "breaking":
     default:
       return FLIGHT_MS_BREAKING;
@@ -197,8 +198,9 @@ export function exitPositionAt(
   play: PlayResult,
   bats: BatterHand = "R",
   sprayOpts?: Omit<SprayInput, "pitch" | "bats">,
+  exitKind?: ExitKind,
 ): ZoneCoord {
-  return exitVisualAt(progress, contact, play, bats, sprayOpts);
+  return exitVisualAt(progress, contact, play, bats, sprayOpts, exitKind);
 }
 
 /**
@@ -211,9 +213,10 @@ export function exitVisualAt(
   play: PlayResult,
   bats: BatterHand = "R",
   sprayOpts?: Omit<SprayInput, "pitch" | "bats">,
+  exitKind?: ExitKind,
 ): ExitVisual {
   const p = clamp01(progress);
-  const style: ExitPathStyle = pathStyleForPlay(play);
+  const style: ExitPathStyle = pathStyleForPlay(play, exitKind);
   const spray = sprayBias({
     pitch: contact,
     bats,
@@ -313,12 +316,13 @@ export function exitTrackSamples(
   count = 16,
   bats: BatterHand = "R",
   sprayOpts?: Omit<SprayInput, "pitch" | "bats">,
+  exitKind?: ExitKind,
 ): ExitVisual[] {
   const end = clamp01(upToProgress);
   if (end <= 0.02) return [];
   return Array.from({ length: count }, (_, i) => {
     const t = ((i + 1) / count) * end;
-    return exitVisualAt(t, contact, play, bats, sprayOpts);
+    return exitVisualAt(t, contact, play, bats, sprayOpts, exitKind);
   });
 }
 

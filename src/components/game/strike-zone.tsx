@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type MouseEvent, type PointerEvent } from "react";
-import type { PitchType, PlayResult, ZoneCoord } from "@/lib/types";
+import type { ExitKind, PitchType, PlayResult, ZoneCoord } from "@/lib/types";
 import type { BatterHand } from "@/lib/contact";
 import {
   ballPositionAt,
@@ -24,6 +24,7 @@ type Props = {
   /** 0–1 exit flight after contact; 0 = hidden */
   exitProgress?: number;
   play?: PlayResult | null;
+  exitKind?: ExitKind | null;
   contactPoint?: ZoneCoord;
   /** Hide plate exit overlay (unused when field camera is off) */
   suppressExitOverlay?: boolean;
@@ -50,6 +51,7 @@ export function StrikeZone({
   ballProgress = 0,
   exitProgress = 0,
   play = null,
+  exitKind = null,
   contactPoint,
   suppressExitOverlay = false,
   sprayAim,
@@ -132,11 +134,26 @@ export function StrikeZone({
   };
   const exitVis =
     showingExit && play
-      ? exitVisualAt(exitProgress, exitFrom, play, bats, sprayOpts)
+      ? exitVisualAt(
+          exitProgress,
+          exitFrom,
+          play,
+          bats,
+          sprayOpts,
+          exitKind ?? undefined,
+        )
       : null;
   const exitTrack =
     showingExit && play
-      ? exitTrackSamples(exitFrom, play, exitProgress, 18, bats, sprayOpts)
+      ? exitTrackSamples(
+          exitFrom,
+          play,
+          exitProgress,
+          18,
+          bats,
+          sprayOpts,
+          exitKind ?? undefined,
+        )
       : [];
 
   // Pitch still arrives at the plate on a whiff (no BIP flight)
