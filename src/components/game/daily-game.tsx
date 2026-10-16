@@ -563,12 +563,9 @@ export function DailyGame() {
       finalPlay: session.finalPlay,
       isDaily,
     });
-    // Pass text only (summary already includes the game URL). A separate
-    // `url` field makes many targets (Messages, X, etc.) drop the body.
-    const payload: ShareData = {
-      title: "Legendary At Bats ⚾",
-      text,
-    };
+    // Text only — no title/url fields. Title duplicates the first line of
+    // the summary; a separate url makes many targets drop the body.
+    const payload: ShareData = { text };
     try {
       if (typeof navigator.share === "function") {
         const canShare =
