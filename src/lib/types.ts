@@ -72,7 +72,7 @@ export type LegendaryAtBat = {
   series: string;
   gameLabel: string;
   inning: string;
-  /** Ballpark as [City] [Noun], e.g. Toronto Centre, Arlington Field */
+  /** Ballpark as [City] [Noun], e.g. Toronto Centre, Texas Field */
   venue: string;
   /** Outs when the AB begins (score-bug O) */
   outs: number;
