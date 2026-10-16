@@ -7,7 +7,6 @@ import {
   fieldSampleAt,
   fieldToSvg,
   fieldTrackSamples,
-  fielderPositions,
   sprayLabel,
 } from "@/lib/field-flight";
 import { playResultLabel } from "@/lib/contact";
@@ -26,7 +25,7 @@ type Props = {
 
 /**
  * Overhead diamond — home at bottom, OF at top — same frame as the zone.
- * Launch angle drives arc height; fielders are soft chase dots.
+ * Launch angle drives arc height. No fielder clutter — ball + path only.
  */
 export function BattedBallField({
   play,
@@ -47,11 +46,6 @@ export function BattedBallField({
   );
   const ball = fieldSampleAt(progress, play, contact, bats, launchDeg);
   const ballSvg = fieldToSvg(ball);
-  const fielders = fielderPositions(
-    { x: ballSvg.x, y: ballSvg.shadowY },
-    progress,
-    launchDeg,
-  );
 
   const airPath =
     track.length > 1
@@ -237,20 +231,6 @@ export function BattedBallField({
             strokeLinejoin="round"
           />
         )}
-
-        {/* Fielders as dots */}
-        {fielders.map((f) => (
-          <g key={f.id}>
-            <circle
-              cx={f.x}
-              cy={f.y}
-              r={1.35}
-              fill="oklch(0.88 0.03 95 / 0.85)"
-              stroke="oklch(0.2 0.03 155 / 0.5)"
-              strokeWidth="0.25"
-            />
-          </g>
-        ))}
 
         {/* Ball shadow on turf */}
         <ellipse

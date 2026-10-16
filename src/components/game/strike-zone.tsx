@@ -187,27 +187,27 @@ export function StrikeZone({
             style={{
               left: `${hover.x * 100}%`,
               top: `${hover.y * 100}%`,
-              width: "24%",
-              height: "18%",
+              width: "14%",
+              height: "10.5%",
             }}
             title="Barrel sweet spot"
           >
-            <span className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/90" />
+            <span className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/90" />
           </span>
         )}
 
         {aim && (
           <span
-            className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-primary/25 shadow-[0_0_18px_oklch(0.82_0.14_75/0.45)]"
+            className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-primary/25 shadow-[0_0_14px_oklch(0.82_0.14_75/0.4)]"
             style={{
               left: `${aim.x * 100}%`,
               top: `${aim.y * 100}%`,
-              width: "24%",
-              height: "18%",
+              width: "14%",
+              height: "10.5%",
             }}
             title="Barrel sweet spot"
           >
-            <span className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary" />
+            <span className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary" />
           </span>
         )}
 
