@@ -787,9 +787,35 @@ function IntroScreen({
         <p className="mx-auto max-w-sm text-sm text-muted-foreground sm:text-base">
           Step into legendary moments. Swing or take — work the count.
         </p>
-        <p className="text-sm text-foreground">
-          Today · {daily.codename}
-        </p>
+        <div className="mx-auto w-full max-w-sm space-y-2 text-left">
+          <div className="text-center">
+            <p className="text-xs uppercase tracking-[0.22em] text-flood">
+              Today · {daily.year} {daily.series}
+            </p>
+            <p className="mt-1 font-[family-name:var(--font-display)] text-xl tracking-wide text-chalk">
+              {daily.codename}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {daily.gameLabel} · {daily.inning} · {daily.runners}
+            </p>
+          </div>
+          <ScoreBug
+            away={daily.away}
+            home={daily.home}
+            inning={daily.inning}
+            outs={daily.outs}
+            count={{ balls: 0, strikes: 0 }}
+            bases={daily.bases}
+            batter={{
+              abbr: battingSideAbbr(daily),
+              number: daily.batter.number,
+            }}
+            pitcher={{
+              abbr: pitchingSideAbbr(daily),
+              number: daily.pitcher.number,
+            }}
+          />
+        </div>
       </div>
 
       <div className="anim-rise-delay space-y-3">
