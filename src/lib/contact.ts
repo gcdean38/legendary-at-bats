@@ -90,6 +90,12 @@ function exitVeloFromQuality(quality: number): number {
 export const BARREL_RADIUS = 0.12;
 
 /**
+ * Plate-normalized radius of the on-screen pitch ball at the plate.
+ * If the click center lands inside this disc, contact is flush / barreled.
+ */
+export const BALL_RADIUS = 0.065;
+
+/**
  * Click center = barrel sweet spot. The full disc around the click is
  * the barrel — mildly oval by handedness (tip side a bit shorter than
  * handle side) so RHB still whiffs more on up-and-in tip misses.
@@ -157,9 +163,17 @@ export function estimateContact(opts: {
   // y grows downward: aim below the ball (higher y) = undercut = fly
   const vertical = clamp((aim.y - pitchLoc.y) / 0.18, -1, 1);
   const proximity = reach.proximity;
-  const quality = clamp(proximity * 0.55 + tFactor * 0.45, 0, 1);
-  const { launchDeg, band } = launchFromVertical(vertical);
-  const exitVeloMph = exitVeloFromQuality(quality);
+  let quality = clamp(proximity * 0.55 + tFactor * 0.45, 0, 1);
+  let { launchDeg, band } = launchFromVertical(vertical);
+
+  // Click center inside the ball disc = flush barrel — elevate quality
+  const flush =
+    euclid <= BALL_RADIUS && reach.onBat && tFactor >= 0.4;
+  if (flush) {
+    quality = Math.max(quality, 0.97);
+  }
+
+  let exitVeloMph = exitVeloFromQuality(quality);
 
   // Off the barrel entirely (e.g. RHB click up-and-left of the pitch) → whiff
   if (!reach.onBat || quality < 0.2 || (euclid > 0.36 && tFactor < 0.4)) {
@@ -186,6 +200,14 @@ export function estimateContact(opts: {
       endsAb: false,
       event: "foul",
     };
+  }
+
+  // Flush in the ball (not topped) → home run. Square/line contact gets
+  // enough loft for the label to match the crush.
+  if (flush && band !== "ground") {
+    const hrLaunch = Math.max(launchDeg, 30);
+    exitVeloMph = Math.max(exitVeloMph, exitVeloFromQuality(1));
+    return pack("home_run", "crush", vertical, quality, hrLaunch, exitVeloMph);
   }
 
   // ---- Flies ----
@@ -340,6 +362,8 @@ export function pathStyleForPlay(play: PlayResult): ExitPathStyle {
 export const CONTACT_OUTCOME_GUIDE = {
   whiff: "quality < 0.22 (or big miss + bad timing)",
   foul: "quality < 0.42",
+  flush_hr:
+    "click center inside the ball disc (≤ BALL_RADIUS) with timing ≥ 0.4 and not topped → home run",
   ground: {
     band: "launch ≤ 5° (bat over the ball / topped)",
     single: "quality ≥ 0.90",
@@ -354,7 +378,7 @@ export const CONTACT_OUTCOME_GUIDE = {
   },
   fly: {
     band: "launch ≥ 25°",
-    home_run: "quality ≥ 0.94 and launch ≥ 28°",
+    home_run: "quality ≥ 0.94 and launch ≥ 28° (or flush rule above)",
     sac_fly: "R3, outs < 2, quality 0.50–0.94",
     double: "quality ≥ 0.92 and launch < 32°",
     fly_out: "else",

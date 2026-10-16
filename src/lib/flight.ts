@@ -112,10 +112,9 @@ export type SprayInput = {
 /**
  * Catcher's view spray: -1 = left (LF/3B), +1 = right (RF/1B).
  *
- * 1) Location — inside tends to pull, outside to oppo
- * 2) Timing — early pulls, late goes opposite
- * 3) Barrel vs pitch — aim open of the ball = inside-out opposite field
- *    (RHB aim right of pitch → RF; same offset works for LHB → LF)
+ * Barrel vs pitch is the primary spray cue (inside-out / pulled):
+ * open of the ball → opposite field for both hands.
+ * Timing (early pull / late oppo) and pitch location are secondary.
  */
 export function sprayBias(input: SprayInput): number {
   const bats = input.bats ?? "R";
@@ -125,22 +124,28 @@ export function sprayBias(input: SprayInput): number {
   const insideAmt = pullSign * (pitch.x - 0.5);
 
   let earlyness = 0;
-  if (input.windowMs && input.windowMs > 0 && input.timingMs != null) {
+  if (
+    input.windowMs &&
+    input.windowMs > 0 &&
+    input.timingMs != null &&
+    input.timingMs > 0
+  ) {
     const ideal = input.windowMs * 0.82;
     earlyness = (ideal - input.timingMs) / (input.windowMs * 0.35);
     earlyness = Math.max(-1.2, Math.min(1.2, earlyness));
   }
 
+  // Primary: where the barrel sits on the ball.
+  // RHB aim right of pitch (open) → RF / oppo (+); left of pitch → pull LF (−).
   let barrelOpen = 0;
   if (input.aim) {
-    // +aim.x relative to pitch → open side → opposite field for both hands
-    barrelOpen = Math.max(-1, Math.min(1, (input.aim.x - pitch.x) / 0.14));
+    barrelOpen = Math.max(-1, Math.min(1, (input.aim.x - pitch.x) / 0.08));
   }
 
   const bias =
-    pullSign * (0.15 + insideAmt * 0.9) +
-    pullSign * earlyness * 0.55 +
-    barrelOpen * 0.9;
+    barrelOpen * 1.15 + // dominate intentional inside-out / pull
+    pullSign * earlyness * 0.45 +
+    pullSign * (0.08 + insideAmt * 0.5);
 
   return Math.max(-1, Math.min(1, bias));
 }
