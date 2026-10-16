@@ -27,8 +27,10 @@ import {
   createInning,
   inningSummary,
   isInningOver,
+  isWalkOff,
   type InningState,
 } from "@/lib/inning";
+// isWalkOff used below for result headline
 import type {
   AtBatEndReason,
   AtBatSessionResult,
@@ -246,7 +248,7 @@ export function DailyGame() {
     }
   }
 
-  /** Fresh half-inning from 0 outs / empty bases. */
+  /** Fresh bottom of the 9th — down 0–3, empty bases. */
   function startInning() {
     const state = createInning();
     inningRef.current = state;
@@ -254,7 +256,7 @@ export function DailyGame() {
     selectAtBat(atBatFromInning(state), "inning");
   }
 
-  /** Next batter in the same half, or a new inning if three outs. */
+  /** Next batter, or a new Bottom 9 if the inning ended. */
   function continueInning() {
     const state = inningRef.current;
     if (!state || isInningOver(state)) {
@@ -527,6 +529,7 @@ export function DailyGame() {
             pending={pending}
             isInning={isInning}
             inningOver={isInning && !!inningSnap && isInningOver(inningSnap)}
+            walkedOff={isInning && !!inningSnap && isWalkOff(inningSnap)}
             inningLine={
               isInning && inningSnap ? inningSummary(inningSnap) : null
             }
@@ -649,7 +652,7 @@ function IntroScreen({
           className="h-12 w-full text-base"
           onClick={onInning}
         >
-          Play an inning
+          Bottom of the 9th
         </Button>
       </div>
     </section>
@@ -725,7 +728,7 @@ function SituationScreen({
     playMode === "daily"
       ? dateKey
       : playMode === "inning"
-        ? "Inning"
+        ? "Bot 9"
         : "Practice";
 
   return (
@@ -946,6 +949,7 @@ function ResultScreen({
   pending,
   isInning,
   inningOver,
+  walkedOff,
   inningLine,
   onShare,
   onReplay,
@@ -959,6 +963,7 @@ function ResultScreen({
   pending: boolean;
   isInning: boolean;
   inningOver: boolean;
+  walkedOff: boolean;
   inningLine: string | null;
   onShare: () => void;
   onReplay: () => void;
@@ -975,6 +980,14 @@ function ResultScreen({
       : session.stars === 2
         ? "Do your job"
         : "Failed the moment";
+
+  const inningHeadline = !isInning
+    ? session.endingTitle
+    : walkedOff
+      ? "Walk-off!"
+      : inningOver
+        ? "Ballgame"
+        : session.endingTitle;
 
   return (
     <section className="anim-rise flex min-h-[85dvh] flex-col gap-6 py-4">
@@ -993,7 +1006,7 @@ function ResultScreen({
           {isInning && atBat.gameLabel ? ` · ${atBat.gameLabel}` : ""}
         </p>
         <h2 className="font-[family-name:var(--font-display)] text-5xl tracking-wide text-chalk">
-          {isInning && inningOver ? "Inning over" : session.endingTitle}
+          {inningHeadline}
         </h2>
         <p className="text-sm text-flood">
           {playResultLabel(session.finalPlay)}
@@ -1060,7 +1073,7 @@ function ResultScreen({
       <div className="mt-auto grid gap-2">
         {isInning && onContinueInning ? (
           <Button size="lg" className="h-12" onClick={onContinueInning}>
-            {inningOver ? "New inning" : "Next batter"}
+            {inningOver ? "New Bottom 9" : "Next batter"}
           </Button>
         ) : (
           <Button size="lg" className="h-12" onClick={onShare}>
