@@ -296,6 +296,14 @@ export function DailyGame() {
     setLivePitch(null);
   }
 
+  /** Drop any active Bot 9 / rewrite rally so moments never share an at-bat log. */
+  function clearInningState() {
+    clearInningPopTimer();
+    setInningPop(null);
+    inningRef.current = null;
+    setInningSnap(null);
+  }
+
   function selectAtBat(
     next: LegendaryAtBat,
     mode: PlayMode,
@@ -303,6 +311,10 @@ export function DailyGame() {
   ) {
     cancelFlight();
     resetBattleState();
+    // Starting a legendary/daily/practice AB must not inherit a prior rally.
+    if (mode !== "inning") {
+      clearInningState();
+    }
     setAtBat(next);
     setPlayMode(mode);
     setDateKey(mode === "daily" ? easternDateKey(new Date()) : next.codename);
@@ -323,8 +335,7 @@ export function DailyGame() {
 
   /** Fresh bottom of the 9th — easy/medium/hard deficit, empty bases. */
   function startInning(difficulty: Bot9Difficulty = "medium") {
-    clearInningPopTimer();
-    setInningPop(null);
+    clearInningState();
     const dealt = dealNextAtBat(createInning(difficulty));
     inningRef.current = dealt.state;
     setInningSnap(dealt.state);
@@ -644,10 +655,7 @@ export function DailyGame() {
   function goHome() {
     cancelFlight();
     resetBattleState();
-    clearInningPopTimer();
-    setInningPop(null);
-    inningRef.current = null;
-    setInningSnap(null);
+    clearInningState();
     try {
       const pick = getDailyAtBat(new Date());
       setAtBat(pick.atBat);
@@ -658,6 +666,12 @@ export function DailyGame() {
     }
     setError(null);
     setPhase("intro");
+  }
+
+  function openCatalog() {
+    resetBattleState();
+    clearInningState();
+    setPhase("catalog");
   }
 
   return (
@@ -718,7 +732,7 @@ export function DailyGame() {
             daily={atBat}
             catalogSize={LEGENDARY_AT_BATS.length}
             onPlayDaily={() => selectAtBat(atBat, "daily")}
-            onOpenCatalog={() => setPhase("catalog")}
+            onOpenCatalog={openCatalog}
             onInning={(difficulty) => startInning(difficulty)}
           />
         )}
@@ -733,7 +747,10 @@ export function DailyGame() {
                   : "practice",
               )
             }
-            onBack={() => setPhase("intro")}
+            onBack={() => {
+              clearInningState();
+              setPhase("intro");
+            }}
           />
         )}
         {phase === "situation" && atBat && (
@@ -798,18 +815,28 @@ export function DailyGame() {
             }
             abLog={isInning && inningSnap ? inningSnap.abLog : null}
             inningKind={isInning && inningSnap ? inningSnap.kind : null}
+            sourceMoment={
+              isInning && inningSnap?.kind === "rewrite" && inningSnap.sourceMomentId
+                ? LEGENDARY_AT_BATS.find((m) => m.id === inningSnap.sourceMomentId) ??
+                  null
+                : null
+            }
             onShare={shareResult}
-            onReplay={() => selectAtBat(atBat, playMode)}
+            onReplay={() => {
+              const sourceId = inningSnap?.sourceMomentId;
+              const source =
+                inningSnap?.kind === "rewrite" && sourceId
+                  ? LEGENDARY_AT_BATS.find((m) => m.id === sourceId)
+                  : null;
+              selectAtBat(source ?? atBat, source ? "practice" : playMode);
+            }}
             onContinueInning={
               isInning && inningSnap && !isInningOver(inningSnap)
                 ? continueInning
                 : undefined
             }
             onNewBot9={startInning}
-            onCatalog={() => {
-              resetBattleState();
-              setPhase("catalog");
-            }}
+            onCatalog={openCatalog}
             onHome={goHome}
           />
         )}
@@ -1375,6 +1402,7 @@ function ResultScreen({
   inningLine,
   abLog,
   inningKind,
+  sourceMoment,
   onShare,
   onReplay,
   onContinueInning,
@@ -1393,6 +1421,7 @@ function ResultScreen({
   inningLine: string | null;
   abLog: AbLogEntry[] | null;
   inningKind: "bot9" | "rewrite" | null;
+  sourceMoment: LegendaryAtBat | null;
   onShare: () => void;
   onReplay: () => void;
   onContinueInning?: () => void;
@@ -1400,32 +1429,45 @@ function ResultScreen({
   onCatalog: () => void;
   onHome: () => void;
 }) {
+  const isRewrite = inningKind === "rewrite";
+  const historyMoment = sourceMoment ?? (!isInning ? atBat : null);
+
   // Bot 9 tie → extras always awards ★★☆.
   const displayStars = tiedExtras ? 2 : session.stars;
 
   const starsBlurb = tiedExtras
     ? "Hopefully your team will come through in extras"
-    : isInning
-      ? inningOver
-        ? (inningLine ?? "Inning over")
-        : "Keep the line moving"
-      : displayStars >= 3
-        ? "Won the game"
-        : displayStars === 2
-          ? "Do your job"
-          : "Failed the moment";
+    : isRewrite
+      ? walkedOff
+        ? "You changed how the story ends"
+        : inningOver
+          ? (inningLine ?? "The original ending stands")
+          : "Keep rewriting"
+      : isInning
+        ? inningOver
+          ? (inningLine ?? "Inning over")
+          : "Keep the line moving"
+        : displayStars >= 3
+          ? "Won the game"
+          : displayStars === 2
+            ? "Do your job"
+            : "Failed the moment";
 
   const inningHeadline = !isInning
     ? session.endingTitle
     : walkedOff
-      ? inningKind === "rewrite"
+      ? isRewrite
         ? "History rewritten"
         : "Walk-off!"
       : tiedExtras
         ? "You tied it"
         : inningOver
-          ? "Ballgame"
+          ? isRewrite
+            ? "History holds"
+            : "Ballgame"
           : session.endingTitle;
+
+  const showLegendaryActions = !isInning || isRewrite;
 
   return (
     <section className="anim-rise flex min-h-[85dvh] flex-col gap-6 py-4">
@@ -1440,7 +1482,7 @@ function ResultScreen({
 
       <div className="space-y-2 text-center">
         <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-          {atBat.codename}
+          {(isRewrite && sourceMoment?.codename) || atBat.codename}
           {isInning && atBat.gameLabel ? ` · ${atBat.gameLabel}` : ""}
         </p>
         <h2 className="font-[family-name:var(--font-display)] text-5xl tracking-wide text-chalk">
@@ -1465,19 +1507,19 @@ function ResultScreen({
         </p>
       </div>
 
-      {!isInning && (
+      {historyMoment && (
         <div className="space-y-2 rounded-md border border-border/80 bg-background/40 p-4">
           <p className="text-xs uppercase tracking-[0.22em] text-flood">
             What actually happened
           </p>
           <p className="font-medium text-foreground">
-            {outcomeLabel(atBat.historical.outcome)}
-            {atBat.historical.batterSucceeded
+            {outcomeLabel(historyMoment.historical.outcome)}
+            {historyMoment.historical.batterSucceeded
               ? " · Batter came through"
               : " · Batter failed"}
           </p>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            {atBat.historical.summary}
+            {historyMoment.historical.summary}
           </p>
         </div>
       )}
@@ -1535,13 +1577,9 @@ function ResultScreen({
       )}
 
       <div className="mt-auto grid gap-2">
-        {isInning && inningOver ? (
+        {isInning && inningOver && !isRewrite ? (
           <Bot9DifficultyPicker
-            title={
-              inningKind === "rewrite"
-                ? "Bottom of the 9th Mode:"
-                : "New Bottom of the 9th:"
-            }
+            title="New Bottom of the 9th:"
             onPick={onNewBot9}
           />
         ) : isInning && onContinueInning ? (
@@ -1554,12 +1592,12 @@ function ResultScreen({
           </Button>
         )}
         <div className="grid gap-2 sm:grid-cols-3">
-          {!isInning && (
+          {showLegendaryActions && (
             <Button size="lg" variant="secondary" className="h-11" onClick={onReplay}>
               Replay
             </Button>
           )}
-          {isInning && (
+          {isInning && !isRewrite && (
             <Button size="lg" variant="secondary" className="h-11" onClick={onShare}>
               {shareFlash ?? "Share"}
             </Button>

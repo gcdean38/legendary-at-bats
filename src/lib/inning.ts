@@ -59,6 +59,8 @@ export type InningState = {
   kind: "bot9" | "rewrite";
   /** Pitch templates for arsenal draws (legendary mix on rewrite) */
   arsenalTemplates: SeedPitch[];
+  /** Legendary moment id that seeded this rewrite rally */
+  sourceMomentId?: string;
   sourceCodename?: string;
   /**
    * Queued teammates for rewrite (and future Bot 9 pools).
@@ -409,6 +411,7 @@ export function createRewriteInning(
       const mix = arsenalFromPitches(atBat.pitches);
       return generateOpeningSequence(mix.length > 0 ? mix : GENERIC_ARSENAL, 6);
     })(),
+    sourceMomentId: atBat.id,
     sourceCodename: atBat.codename,
     lineupQueue: followUps.map((b) => ({ ...b })),
     abLog: [first],
@@ -599,6 +602,11 @@ export function inningSummary(state: InningState): string {
     const margin = state.battingHome
       ? state.home.runs - state.away.runs
       : state.away.runs - state.home.runs;
+    if (state.kind === "rewrite") {
+      return margin === 1
+        ? "You rewrote history · walk-off"
+        : `You rewrote history · won by ${margin}`;
+    }
     if (state.half === "bottom" && state.battingHome) {
       return margin === 1 ? "Walk-off win" : `Walk-off · won by ${margin}`;
     }
@@ -608,6 +616,9 @@ export function inningSummary(state: InningState): string {
     return "Tied · hopefully your team will come through in extras";
   }
   if (state.outs >= 3) {
+    if (state.kind === "rewrite") {
+      return "Rally fell short · the original ending stands";
+    }
     const stillDown = state.battingHome
       ? state.away.runs - state.home.runs
       : state.home.runs - state.away.runs;
