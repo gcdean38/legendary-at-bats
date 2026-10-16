@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { HowToPlayOverlay } from "@/components/game/how-to-play";
 import { PitchCanvas } from "@/components/game/pitch-canvas";
 import { ScoreBug } from "@/components/game/score-bug";
 import { LEGENDARY_AT_BATS } from "@/data/legendary-at-bats";
@@ -56,6 +57,7 @@ export function DailyGame() {
   const [exitProgress, setExitProgress] = useState(0);
   const [copied, setCopied] = useState(false);
   const [continueInSec, setContinueInSec] = useState<number | null>(null);
+  const [howToOpen, setHowToOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const flightStart = useRef(0);
   const rafRef = useRef<number | null>(null);
@@ -202,6 +204,7 @@ export function DailyGame() {
     setIsDaily(daily);
     setDateKey(daily ? utcDateKey(new Date()) : `practice · ${next.id}`);
     setPhase("situation");
+    setHowToOpen(true);
   }
 
   function beginPitch() {
@@ -380,6 +383,10 @@ export function DailyGame() {
         aria-hidden
       />
 
+      {howToOpen && (
+        <HowToPlayOverlay onDismiss={() => setHowToOpen(false)} />
+      )}
+
       <main className="relative z-10 mx-auto flex w-full max-w-lg flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
         {phase === "loading" && <LoadingState />}
         {phase === "error" && (
@@ -409,6 +416,7 @@ export function DailyGame() {
             isDaily={isDaily}
             onStart={() => beginPitchWindup()}
             onBack={goHome}
+            onHowTo={() => setHowToOpen(true)}
           />
         )}
         {atBat &&
@@ -617,6 +625,7 @@ function SituationScreen({
   isDaily,
   onStart,
   onBack,
+  onHowTo,
 }: {
   atBat: LegendaryAtBat;
   dateKey: string;
@@ -624,6 +633,7 @@ function SituationScreen({
   isDaily: boolean;
   onStart: () => void;
   onBack: () => void;
+  onHowTo: () => void;
 }) {
   return (
     <section className="anim-rise flex min-h-[85dvh] flex-col justify-between gap-8 py-4">
@@ -632,9 +642,19 @@ function SituationScreen({
           <p className="font-[family-name:var(--font-display)] text-2xl tracking-wide text-primary">
             Legendary At Bats
           </p>
-          <Badge variant="outline" className="rounded-md border-flood/40 text-flood">
-            {isDaily ? dateKey : "Practice"}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 text-xs text-muted-foreground"
+              onClick={onHowTo}
+            >
+              How to play
+            </Button>
+            <Badge variant="outline" className="rounded-md border-flood/40 text-flood">
+              {isDaily ? dateKey : "Practice"}
+            </Badge>
+          </div>
         </div>
 
         <ScoreBug
