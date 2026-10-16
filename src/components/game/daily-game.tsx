@@ -42,6 +42,7 @@ import {
   pitchingSideAbbr,
   runnersLabel,
 } from "@/lib/situation";
+import { trackEvent } from "@/lib/analytics";
 import type {
   AtBatEndReason,
   AtBatSessionResult,
@@ -308,6 +309,13 @@ export function DailyGame() {
       howToSeenRef.current = true;
       setHowToOpen(true);
     }
+    trackEvent("at_bat_start", {
+      mode,
+      moment_id: next.id,
+      year: next.year,
+      series: next.series,
+      matchup: next.codename,
+    });
   }
 
   /** Fresh bottom of the 9th — down 0–3, empty bases. */
@@ -464,6 +472,17 @@ export function DailyGame() {
         finalCount,
       });
       setSession(final);
+      trackEvent("at_bat_complete", {
+        mode: playMode,
+        moment_id: atBat.id,
+        year: atBat.year,
+        series: atBat.series,
+        matchup: atBat.codename,
+        stars: final.stars,
+        final_play: final.finalPlay,
+        verdict: final.historyVerdict,
+        end_reason: reason,
+      });
 
       if (inningRef.current) {
         const next = advanceInning(
@@ -572,12 +591,26 @@ export function DailyGame() {
           typeof navigator.canShare !== "function" || navigator.canShare(payload);
         if (canShare) {
           await navigator.share(payload);
+          trackEvent("share_result", {
+            method: "share_sheet",
+            mode: playMode,
+            moment_id: atBat.id,
+            stars: session.stars,
+            final_play: session.finalPlay,
+          });
           flashShare("Shared!");
           return;
         }
       }
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
+        trackEvent("share_result", {
+          method: "clipboard",
+          mode: playMode,
+          moment_id: atBat.id,
+          stars: session.stars,
+          final_play: session.finalPlay,
+        });
         flashShare("Copied!");
         return;
       }
@@ -588,6 +621,13 @@ export function DailyGame() {
       try {
         if (navigator.clipboard?.writeText) {
           await navigator.clipboard.writeText(text);
+          trackEvent("share_result", {
+            method: "clipboard_fallback",
+            mode: playMode,
+            moment_id: atBat.id,
+            stars: session.stars,
+            final_play: session.finalPlay,
+          });
           flashShare("Copied!");
           return;
         }
