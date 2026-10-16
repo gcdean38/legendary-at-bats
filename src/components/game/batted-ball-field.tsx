@@ -8,9 +8,53 @@ import {
   fieldToSvg,
   fieldTrackSamples,
   sprayLabel,
+  type FieldSprayOpts,
 } from "@/lib/field-flight";
 import { playResultLabel } from "@/lib/contact";
 import { cn } from "@/lib/utils";
+
+/** Discrete stadium palette — no fades */
+const GRASS = "oklch(0.4 0.1 145)";
+const DIRT = "oklch(0.58 0.09 68)";
+const WARNING = "oklch(0.38 0.1 25)"; // burgundy
+const CHALK = "oklch(0.94 0.02 95)";
+const WALL = "oklch(0.72 0.03 95)";
+
+/**
+ * Diamond geometry — 1B/3B sit ON the foul lines.
+ * HOME → foul corners define rays; bases are fixed distances along those rays.
+ */
+const HOME = { x: 50, y: 91 };
+const LF_WALL = { x: 8, y: 14 };
+const RF_WALL = { x: 92, y: 14 };
+
+function along(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  t: number,
+) {
+  return {
+    x: from.x + (to.x - from.x) * t,
+    y: from.y + (to.y - from.y) * t,
+  };
+}
+
+const FIRST = along(HOME, RF_WALL, 0.3);
+const THIRD = along(HOME, LF_WALL, 0.3);
+// Second = home + (1B−home) + (3B−home) for a square diamond in this projection
+const SECOND = {
+  x: HOME.x + (FIRST.x - HOME.x) + (THIRD.x - HOME.x),
+  y: HOME.y + (FIRST.y - HOME.y) + (THIRD.y - HOME.y),
+};
+
+/** Dirt cutout extends beyond all four bases */
+const DIRT_HOME = along(HOME, { x: 50, y: 100 }, 0.55);
+const DIRT_1B = along(HOME, RF_WALL, 0.42);
+const DIRT_2B = {
+  x: SECOND.x,
+  y: SECOND.y - 6,
+};
+const DIRT_3B = along(HOME, LF_WALL, 0.42);
 
 type Props = {
   play: PlayResult;
@@ -18,33 +62,43 @@ type Props = {
   contact: ZoneCoord;
   bats: BatterHand;
   launchDeg?: number | null;
-  /** Fill a parent frame (used inside PitchCanvas morph) */
+  aim?: ZoneCoord;
+  timingMs?: number;
+  windowMs?: number;
   fill?: boolean;
   className?: string;
 };
 
-/**
- * Overhead diamond — home at bottom, OF at top — same frame as the zone.
- * Launch angle drives arc height. No fielder clutter — ball + path only.
- */
 export function BattedBallField({
   play,
   progress,
   contact,
   bats,
   launchDeg = null,
+  aim,
+  timingMs,
+  windowMs,
   fill = false,
   className,
 }: Props) {
+  const sprayOpts: FieldSprayOpts = { bats, aim, timingMs, windowMs };
   const track = fieldTrackSamples(
     play,
     progress,
     contact,
     bats,
     launchDeg,
+    sprayOpts,
     32,
   );
-  const ball = fieldSampleAt(progress, play, contact, bats, launchDeg);
+  const ball = fieldSampleAt(
+    progress,
+    play,
+    contact,
+    bats,
+    launchDeg,
+    sprayOpts,
+  );
   const ballSvg = fieldToSvg(ball);
 
   const airPath =
@@ -67,12 +121,14 @@ export function BattedBallField({
           .join(" ")
       : "";
 
-  const ballR = Math.max(
-    1.2,
-    3.2 - ball.dist * 2.0 + ball.height * 1.6,
-  );
+  const ballR = Math.max(1.2, 3.2 - ball.dist * 2.0 + ball.height * 1.6);
   const isHit =
     play === "home_run" || play === "double" || play === "single";
+
+  function baseMark(c: { x: number; y: number }, size = 2.4) {
+    const h = size / 2;
+    return `${c.x},${c.y - h} ${c.x + h},${c.y} ${c.x},${c.y + h} ${c.x - h},${c.y}`;
+  }
 
   return (
     <div
@@ -82,10 +138,7 @@ export function BattedBallField({
           : "relative mx-auto aspect-[4/5] w-full overflow-hidden rounded-sm border border-chalk/20",
         className,
       )}
-      style={{
-        background:
-          "linear-gradient(180deg, oklch(0.24 0.03 250 / 0.92) 0%, oklch(0.36 0.07 145 / 0.8) 32%, oklch(0.4 0.09 145 / 0.95) 100%)",
-      }}
+      style={{ background: GRASS }}
     >
       <svg
         viewBox="0 0 100 100"
@@ -93,178 +146,128 @@ export function BattedBallField({
         className="absolute inset-0 h-full w-full"
         aria-hidden
       >
-        <defs>
-          <radialGradient id="infieldDirt" cx="50%" cy="78%" r="48%">
-            <stop offset="0%" stopColor="oklch(0.58 0.09 72 / 0.7)" />
-            <stop offset="50%" stopColor="oklch(0.5 0.08 72 / 0.45)" />
-            <stop offset="100%" stopColor="oklch(0.4 0.09 145 / 0)" />
-          </radialGradient>
-          <linearGradient id="warningTrack" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="oklch(0.52 0.08 70 / 0.55)" />
-            <stop offset="100%" stopColor="oklch(0.45 0.07 70 / 0.15)" />
-          </linearGradient>
-        </defs>
-
-        {/* Warning track band under the wall */}
+        {/* Burgundy warning track — solid band, no fade */}
         <path
-          d="M 4 22 Q 50 4 96 22 L 94 16 Q 50 0 6 16 Z"
-          fill="url(#warningTrack)"
-          opacity="0.85"
+          d={`M ${LF_WALL.x - 2} ${LF_WALL.y + 8}
+              Q 50 ${LF_WALL.y - 6} ${RF_WALL.x + 2} ${RF_WALL.y + 8}
+              L ${RF_WALL.x + 1} ${RF_WALL.y + 2}
+              Q 50 ${LF_WALL.y - 12} ${LF_WALL.x - 1} ${LF_WALL.y + 2}
+              Z`}
+          fill={WARNING}
         />
 
         {/* Outfield wall */}
         <path
-          d="M 5 18 Q 50 1 95 18"
+          d={`M ${LF_WALL.x} ${LF_WALL.y} Q 50 ${LF_WALL.y - 12} ${RF_WALL.x} ${RF_WALL.y}`}
           fill="none"
-          stroke="oklch(0.78 0.04 95 / 0.4)"
-          strokeWidth="0.7"
+          stroke={WALL}
+          strokeWidth="0.85"
         />
 
-        {/* Foul lines */}
-        <line
-          x1="50"
-          y1="90"
-          x2="6"
-          y2="14"
-          stroke="oklch(0.93 0.02 95 / 0.4)"
-          strokeWidth="0.4"
-        />
-        <line
-          x1="50"
-          y1="90"
-          x2="94"
-          y2="14"
-          stroke="oklch(0.93 0.02 95 / 0.4)"
-          strokeWidth="0.4"
+        {/* Infield dirt — one solid cutout past all bases */}
+        <polygon
+          points={`${DIRT_HOME.x},${DIRT_HOME.y} ${DIRT_1B.x},${DIRT_1B.y} ${DIRT_2B.x},${DIRT_2B.y} ${DIRT_3B.x},${DIRT_3B.y}`}
+          fill={DIRT}
         />
 
-        {/* Infield dirt diamond + mound cutout */}
-        <polygon
-          points="50,90 72,68 50,48 28,68"
-          fill="url(#infieldDirt)"
-          opacity="0.95"
+        {/* Foul lines = base paths (through 1B / 3B) */}
+        <line
+          x1={HOME.x}
+          y1={HOME.y}
+          x2={LF_WALL.x}
+          y2={LF_WALL.y}
+          stroke={CHALK}
+          strokeWidth="0.45"
+          opacity="0.85"
         />
-        {/* Baseline / cutout chalk */}
-        <polygon
-          points="50,88 70,68 50,50 30,68"
+        <line
+          x1={HOME.x}
+          y1={HOME.y}
+          x2={RF_WALL.x}
+          y2={RF_WALL.y}
+          stroke={CHALK}
+          strokeWidth="0.45"
+          opacity="0.85"
+        />
+        {/* Infield base paths 1B–2B–3B */}
+        <polyline
+          points={`${FIRST.x},${FIRST.y} ${SECOND.x},${SECOND.y} ${THIRD.x},${THIRD.y}`}
           fill="none"
-          stroke="oklch(0.9 0.03 95 / 0.2)"
-          strokeWidth="0.35"
-        />
-        {/* Keyhole / batter's box dirt */}
-        <ellipse
-          cx="50"
-          cy="86"
-          rx="7"
-          ry="5"
-          fill="oklch(0.55 0.08 72 / 0.55)"
+          stroke={CHALK}
+          strokeWidth="0.4"
+          opacity="0.7"
         />
 
-        {/* Pitcher's mound */}
+        {/* Mound */}
         <ellipse
-          cx="50"
-          cy="68"
-          rx="4"
-          ry="2.8"
-          fill="oklch(0.52 0.08 70 / 0.65)"
-        />
-        <ellipse
-          cx="50"
-          cy="67.4"
-          rx="1.4"
-          ry="0.7"
-          fill="oklch(0.4 0.05 70 / 0.5)"
+          cx={50}
+          cy={(FIRST.y + HOME.y) / 2 - 2}
+          rx="3.6"
+          ry="2.5"
+          fill={DIRT}
+          stroke="oklch(0.45 0.07 68)"
+          strokeWidth="0.3"
         />
 
-        {/* Bases — smaller so dirt reads */}
-        <rect
-          x="48.6"
-          y="51.2"
-          width="2.8"
-          height="2.8"
-          transform="rotate(45 50 52.6)"
-          fill="oklch(0.94 0.02 95 / 0.85)"
-        />
-        <rect
-          x="33.2"
-          y="66.2"
-          width="2.4"
-          height="2.4"
-          transform="rotate(45 34.4 67.4)"
-          fill="oklch(0.94 0.02 95 / 0.7)"
-        />
-        <rect
-          x="64.4"
-          y="66.2"
-          width="2.4"
-          height="2.4"
-          transform="rotate(45 65.6 67.4)"
-          fill="oklch(0.94 0.02 95 / 0.7)"
-        />
-
-        {/* Home plate */}
+        {/* Bases on the foul / base paths */}
+        <polygon points={baseMark(FIRST)} fill={CHALK} />
+        <polygon points={baseMark(SECOND)} fill={CHALK} />
+        <polygon points={baseMark(THIRD)} fill={CHALK} />
         <polygon
-          points="50,92.5 46.2,88.8 46.2,86.2 53.8,86.2 53.8,88.8"
-          fill="oklch(0.95 0.02 95 / 0.95)"
+          points={`${HOME.x},${HOME.y + 1.6} ${HOME.x - 2.4},${HOME.y - 1.2} ${HOME.x - 2.4},${HOME.y - 2.8} ${HOME.x + 2.4},${HOME.y - 2.8} ${HOME.x + 2.4},${HOME.y - 1.2}`}
+          fill={CHALK}
         />
 
-        {/* Ground track (turf shadow of the flight) */}
         {groundPath && (
           <path
             d={groundPath}
             fill="none"
-            stroke="oklch(0.15 0.02 145 / 0.35)"
+            stroke="oklch(0.2 0.03 145 / 0.45)"
             strokeWidth="0.55"
             strokeLinecap="round"
             strokeDasharray="1.2 1.1"
           />
         )}
 
-        {/* Air arc — lifts with launch angle */}
         {airPath && (
           <path
             d={airPath}
             fill="none"
-            stroke="oklch(0.92 0.04 95 / 0.65)"
+            stroke={CHALK}
             strokeWidth="0.7"
+            strokeOpacity="0.75"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
         )}
 
-        {/* Ball shadow on turf */}
         <ellipse
           cx={ballSvg.x}
           cy={ballSvg.shadowY}
           rx={Math.max(1.1, ballR * 1.05)}
           ry={0.7}
-          fill="oklch(0.1 0.02 145 / 0.45)"
-          opacity={Math.max(0.15, 0.55 - ball.height * 0.4)}
+          fill="oklch(0.2 0.04 145 / 0.5)"
+          opacity={Math.max(0.2, 0.55 - ball.height * 0.4)}
         />
 
-        {/* Ball */}
         <circle
           cx={ballSvg.x}
           cy={ballSvg.y}
           r={ballR}
-          fill={isHit ? "oklch(0.82 0.14 75)" : "oklch(0.94 0.02 95)"}
+          fill={isHit ? "oklch(0.82 0.14 75)" : CHALK}
           opacity={Math.max(0.25, 1 - progress * 0.1)}
-          style={{
-            filter: isHit
-              ? "drop-shadow(0 0 4px oklch(0.82 0.14 75 / 0.7))"
-              : "drop-shadow(0 0 3px oklch(0.9 0.05 95 / 0.45))",
-          }}
         />
       </svg>
 
-      <p className="pointer-events-none absolute left-2.5 top-2 text-[10px] uppercase tracking-[0.16em] text-chalk/55">
+      <p className="pointer-events-none absolute left-2.5 top-2 text-[10px] uppercase tracking-[0.16em] text-chalk/70">
         LF
       </p>
-      <p className="pointer-events-none absolute right-2.5 top-2 text-[10px] uppercase tracking-[0.16em] text-chalk/55">
+      <p className="pointer-events-none absolute right-2.5 top-2 text-[10px] uppercase tracking-[0.16em] text-chalk/70">
         RF
       </p>
-      <p className="pointer-events-none absolute bottom-2 left-0 right-0 text-center text-[10px] uppercase tracking-[0.16em] text-chalk/70">
-        {playResultLabel(play)} · {exitLabel(play)} · {sprayLabel(contact, bats)}
+      <p className="pointer-events-none absolute bottom-2 left-0 right-0 text-center text-[10px] uppercase tracking-[0.16em] text-chalk/80">
+        {playResultLabel(play)} · {exitLabel(play)} ·{" "}
+        {sprayLabel(contact, bats, sprayOpts)}
         {launchDeg != null ? ` · ~${Math.round(launchDeg)}°` : ""}
       </p>
     </div>

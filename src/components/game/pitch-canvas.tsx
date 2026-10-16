@@ -22,6 +22,8 @@ type Props = {
   exitProgress?: number;
   play?: PlayResult | null;
   launchDeg?: number | null;
+  timingMs?: number;
+  windowMs?: number;
   onAim?: (coord: ZoneCoord, timingMs: number) => void;
   startedAt?: number;
   className?: string;
@@ -44,6 +46,8 @@ export function PitchCanvas({
   exitProgress = 0,
   play = null,
   launchDeg = null,
+  timingMs,
+  windowMs,
   onAim,
   startedAt = 0,
   className,
@@ -85,6 +89,9 @@ export function PitchCanvas({
             contact={target}
             bats={bats}
             launchDeg={launchDeg}
+            aim={aim}
+            timingMs={timingMs}
+            windowMs={windowMs}
           />
         )}
       </div>

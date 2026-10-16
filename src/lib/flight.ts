@@ -99,20 +99,49 @@ export type ExitVisual = {
   shadowOpacity: number;
 };
 
+export type SprayInput = {
+  /** Pitch location at the plate (inside/outside) */
+  pitch: ZoneCoord;
+  bats?: BatterHand;
+  /** Barrel sweet-spot aim — open of the ball = inside-out oppo */
+  aim?: ZoneCoord;
+  timingMs?: number;
+  windowMs?: number;
+};
+
 /**
  * Catcher's view spray: -1 = left (LF/3B), +1 = right (RF/1B).
- * RHB pulls left; LHB pulls right. Inside pitches amplify pull;
- * outside pitches can spray opposite field.
+ *
+ * 1) Location — inside tends to pull, outside to oppo
+ * 2) Timing — early pulls, late goes opposite
+ * 3) Barrel vs pitch — aim open of the ball = inside-out opposite field
+ *    (RHB aim right of pitch → RF; same offset works for LHB → LF)
  */
-export function sprayBias(
-  contact: ZoneCoord,
-  bats: BatterHand = "R",
-): number {
-  const pullSign = bats === "L" ? 1 : -1; // switch hits as RHB
-  // + when pitch is inside for this batter (left for RHB, right for LHB)
-  const insideAmt = pullSign * (contact.x - 0.5);
-  // Base pull tendency + location (inside → more pull, outside → oppo)
-  const bias = pullSign * (0.45 + insideAmt * 1.4);
+export function sprayBias(input: SprayInput): number {
+  const bats = input.bats ?? "R";
+  const pullSign = bats === "L" ? 1 : -1;
+  const pitch = input.pitch;
+
+  const insideAmt = pullSign * (pitch.x - 0.5);
+
+  let earlyness = 0;
+  if (input.windowMs && input.windowMs > 0 && input.timingMs != null) {
+    const ideal = input.windowMs * 0.82;
+    earlyness = (ideal - input.timingMs) / (input.windowMs * 0.35);
+    earlyness = Math.max(-1.2, Math.min(1.2, earlyness));
+  }
+
+  let barrelOpen = 0;
+  if (input.aim) {
+    // +aim.x relative to pitch → open side → opposite field for both hands
+    barrelOpen = Math.max(-1, Math.min(1, (input.aim.x - pitch.x) / 0.14));
+  }
+
+  const bias =
+    pullSign * (0.15 + insideAmt * 0.9) +
+    pullSign * earlyness * 0.55 +
+    barrelOpen * 0.9;
+
   return Math.max(-1, Math.min(1, bias));
 }
 
@@ -125,23 +154,31 @@ export function exitPositionAt(
   contact: ZoneCoord,
   play: PlayResult,
   bats: BatterHand = "R",
+  sprayOpts?: Omit<SprayInput, "pitch" | "bats">,
 ): ZoneCoord {
-  return exitVisualAt(progress, contact, play, bats);
+  return exitVisualAt(progress, contact, play, bats, sprayOpts);
 }
 
 /**
  * Perspective flight: carries into the field with pull/oppo spray from
- * contact location + handedness, shrinks with depth, fades out.
+ * location + timing + barrel (inside-out), shrinks with depth, fades out.
  */
 export function exitVisualAt(
   progress: number,
   contact: ZoneCoord,
   play: PlayResult,
   bats: BatterHand = "R",
+  sprayOpts?: Omit<SprayInput, "pitch" | "bats">,
 ): ExitVisual {
   const p = clamp01(progress);
   const style: ExitPathStyle = pathStyleForPlay(play);
-  const spray = sprayBias(contact, bats);
+  const spray = sprayBias({
+    pitch: contact,
+    bats,
+    aim: sprayOpts?.aim,
+    timingMs: sprayOpts?.timingMs,
+    windowMs: sprayOpts?.windowMs,
+  });
 
   let lateral = 0; // multiplied by spray
   let away = 0; // negative y = into the field / up the frame
@@ -233,12 +270,13 @@ export function exitTrackSamples(
   upToProgress: number,
   count = 16,
   bats: BatterHand = "R",
+  sprayOpts?: Omit<SprayInput, "pitch" | "bats">,
 ): ExitVisual[] {
   const end = clamp01(upToProgress);
   if (end <= 0.02) return [];
   return Array.from({ length: count }, (_, i) => {
     const t = ((i + 1) / count) * end;
-    return exitVisualAt(t, contact, play, bats);
+    return exitVisualAt(t, contact, play, bats, sprayOpts);
   });
 }
 

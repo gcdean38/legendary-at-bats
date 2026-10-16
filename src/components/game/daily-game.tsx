@@ -772,6 +772,8 @@ function PitchScreen({
           exitProgress={phase === "pitch_result" ? exitProgress : 0}
           play={lastGrade?.play ?? null}
           launchDeg={lastGrade?.launchDeg ?? null}
+          timingMs={lastGrade?.timingMs}
+          windowMs={FLIGHT_MS}
           onAim={onAim}
           startedAt={flightStart}
         >
