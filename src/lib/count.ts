@@ -1,4 +1,3 @@
-import { arsenalFromPitches, throwFromArsenal } from "@/lib/arsenal";
 import type {
   AtBatEndReason,
   CountState,
@@ -91,10 +90,13 @@ export function applyPitchEvent(
 }
 
 /**
- * Next seed pitch.
- * Scripted order while cursor is in-range; once the sequence is exhausted
- * (AB still alive), throw a fresh pitch from the pitcher's arsenal
- * (unique types in the script) — new location, not a recycle of an old one.
+ * Next seed pitch for a legendary (or pre-rolled) sequence.
+ * Scripted order while cursor is in-range; once exhausted (foul battle
+ * still alive), recycle randomly from that same scripted pool — same
+ * locations/types — instead of inventing endless new arsenal pitches.
+ *
+ * Bottom-of-the-9th / rewrite rallies pre-roll a full arsenal sequence
+ * into `pitches`, so they rarely hit the recycle path.
  */
 export function pitchAtCursor(
   pitches: SeedPitch[],
@@ -111,5 +113,9 @@ export function pitchAtCursor(
       id: `${template.id}·${cursor + 1}`,
     };
   }
-  return throwFromArsenal(arsenalFromPitches(pitches), cursor, rng);
+  const template = pitches[Math.floor(rng() * pitches.length)]!;
+  return {
+    ...template,
+    id: `${template.id}·${cursor + 1}`,
+  };
 }

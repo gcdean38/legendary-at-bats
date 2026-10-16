@@ -116,7 +116,10 @@ export function DailyGame() {
       ? pitchAtCursor(atBat.pitches, pitchCursor)
       : null;
   const extended =
-    !!atBat && pitchCursor >= atBat.pitches.length && atBat.pitches.length > 0;
+    !!atBat &&
+    playMode !== "inning" &&
+    pitchCursor >= atBat.pitches.length &&
+    atBat.pitches.length > 0;
 
   useEffect(() => {
     try {
