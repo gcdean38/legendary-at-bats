@@ -19,14 +19,30 @@ const body = Manrope({
 const siteDescription =
   "Daily challenge: step into legendary MLB playoff at-bats. Recognize the pitch, decide take or swing, aim the zone — and try to change history.";
 
+/** Prefix for static assets — matches next.config basePath on Pages builds. */
+const assetBase =
+  process.env.GITHUB_PAGES === "true" ? "/legendary-at-bats" : "";
+
 export const metadata: Metadata = {
   metadataBase: new URL(SHARE_GAME_URL),
   title: "Legendary At Bats",
   description: siteDescription,
   applicationName: "Legendary At Bats",
   icons: {
-    icon: [{ url: "/icon.png", type: "image/png", sizes: "512x512" }],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+    // Root-absolute under assetBase so localhost and GitHub Pages both resolve.
+    // Prefer PNG first — clearer in tabs than a tiny ICO.
+    icon: [
+      {
+        url: `${assetBase}/icon.png`,
+        type: "image/png",
+        sizes: "512x512",
+      },
+      { url: `${assetBase}/favicon.ico`, sizes: "any" },
+    ],
+    shortcut: [`${assetBase}/favicon.ico`],
+    apple: [
+      { url: `${assetBase}/apple-touch-icon.png`, sizes: "180x180" },
+    ],
   },
   openGraph: {
     type: "website",
@@ -36,7 +52,7 @@ export const metadata: Metadata = {
     description: siteDescription,
     images: [
       {
-        url: "/og.jpg",
+        url: "og.jpg",
         width: 1280,
         height: 720,
         alt: "Legendary At Bats — step into legendary playoff moments",
@@ -47,7 +63,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Legendary At Bats",
     description: siteDescription,
-    images: ["/og.jpg"],
+    images: ["og.jpg"],
   },
 };
 
