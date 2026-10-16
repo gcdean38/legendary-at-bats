@@ -84,21 +84,21 @@ function exitVeloFromQuality(quality: number): number {
 }
 
 /**
- * Plate-normalized radius of the barrel disc (matches the on-screen
- * sweet-spot marker). Pitch anywhere inside ≈ on the barrel.
+ * Plate-normalized barrel radii — match the on-screen sweet-spot marker
+ * (≈14% × 10.5% of the plate). Tip slightly shorter, handle longer.
  */
-export const BARREL_RADIUS = 0.12;
+export const BARREL_RADIUS = 0.07; // half of 14% width
+export const BARREL_RADIUS_Y = 0.0525; // half of 10.5% height
 
 /**
  * Plate-normalized radius of the on-screen pitch ball at the plate.
  * If the click center lands inside this disc, contact is flush / barreled.
  */
-export const BALL_RADIUS = 0.065;
+export const BALL_RADIUS = 0.055;
 
 /**
- * Click center = barrel sweet spot. The full disc around the click is
- * the barrel — mildly oval by handedness (tip side a bit shorter than
- * handle side) so RHB still whiffs more on up-and-in tip misses.
+ * Click center = barrel sweet spot. Contact only when the barrel oval
+ * overlaps the ball — if they miss entirely, it's a whiff.
  */
 export function barrelReach(opts: {
   pitchLoc: ZoneCoord;
@@ -114,15 +114,17 @@ export function barrelReach(opts: {
   const alongTip = dx * tipSign;
   const alongHandle = -alongTip;
 
-  // Full disc ≈ barrel; tip slightly shorter, handle slightly longer
-  const rTip = BARREL_RADIUS * 0.92;
-  const rHandle = BARREL_RADIUS * 1.18;
-  const rPerp = BARREL_RADIUS;
+  // Expand barrel by ball radius so "onBat" = circles/ovals overlap
+  const expand = BALL_RADIUS;
+  const rTip = (BARREL_RADIUS + expand) * 0.92;
+  const rHandle = (BARREL_RADIUS + expand) * 1.18;
+  const rPerp = BARREL_RADIUS_Y + expand;
   const rAlong = alongTip > 0 ? rTip : rHandle;
   const nx = (alongTip > 0 ? alongTip : alongHandle) / rAlong;
   const ny = Math.abs(dy) / rPerp;
   const norm = Math.hypot(nx, ny);
 
+  // No overlap between sweet-spot area and ball → whiff
   if (norm > 1 + 1e-6) {
     return {
       onBat: false,
@@ -131,12 +133,22 @@ export function barrelReach(opts: {
     };
   }
 
-  // Soft falloff: edge of the disc still makes contact, center barrels
-  const proximity = clamp(1 - Math.pow(norm, 1.35) * 0.72, 0.28, 1);
+  // Proximity from how centered the ball is in the unexpanded barrel
+  const rTip0 = BARREL_RADIUS * 0.92;
+  const rHandle0 = BARREL_RADIUS * 1.18;
+  const rAlong0 = alongTip > 0 ? rTip0 : rHandle0;
+  const nx0 = (alongTip > 0 ? alongTip : alongHandle) / rAlong0;
+  const ny0 = Math.abs(dy) / BARREL_RADIUS_Y;
+  const norm0 = Math.hypot(nx0, ny0);
+  const proximity =
+    norm0 > 1
+      ? 0.32 // grazing edge contact
+      : clamp(1 - Math.pow(norm0, 1.35) * 0.72, 0.28, 1);
+
   return {
     onBat: true,
     proximity,
-    tipSideMiss: alongTip > rTip * 0.55,
+    tipSideMiss: alongTip > rTip0 * 0.55,
   };
 }
 
@@ -182,8 +194,21 @@ export function estimateContact(opts: {
 
   let exitVeloMph = exitVeloFromQuality(quality);
 
-  // Off the barrel entirely (e.g. RHB click up-and-left of the pitch) → whiff
-  if (!reach.onBat || quality < 0.2 || (euclid > 0.36 && tFactor < 0.4)) {
+  // Sweet-spot area misses the ball entirely → whiff (hard rule)
+  if (!reach.onBat) {
+    return {
+      vertical,
+      quality: 0,
+      launchDeg,
+      exitVeloMph: exitVeloFromQuality(0),
+      play: "whiff",
+      exitKind: "whiff",
+      endsAb: false,
+      event: "strike",
+    };
+  }
+
+  if (quality < 0.2 || (euclid > 0.36 && tFactor < 0.4)) {
     return {
       vertical,
       quality,
@@ -377,7 +402,8 @@ export function pathStyleForPlay(play: PlayResult): ExitPathStyle {
  * Deterministic thresholds — there is no RNG roll.
  */
 export const CONTACT_OUTCOME_GUIDE = {
-  whiff: "quality < 0.22 (or big miss + bad timing)",
+  whiff:
+    "sweet-spot oval misses the ball entirely (no overlap), or quality < 0.2",
   foul: "quality < 0.42",
   flush_hr:
     "click inside the ball disc, at/under center (not top half), timing ≥ 0.4 → home run (only HR path)",
