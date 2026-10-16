@@ -72,7 +72,7 @@ export type LegendaryAtBat = {
   series: string;
   gameLabel: string;
   inning: string;
-  /** Ballpark as [City] [Noun], e.g. Toronto Centre, Texas Field */
+  /** Real ballpark name, e.g. Rogers Centre, Globe Life Field */
   venue: string;
   /** Outs when the AB begins (score-bug O) */
   outs: number;
@@ -81,9 +81,19 @@ export type LegendaryAtBat = {
   bases: BasesState;
   /** Human label for situation copy */
   runners: string;
-  /** City identity only — never real player names */
-  batter: { team: string; number: number; bats: "L" | "R" | "S" };
-  pitcher: { team: string; number: number; throws: "L" | "R" };
+  /** Franchise nickname + jersey; name when known (legendary moments). */
+  batter: {
+    name?: string;
+    team: string;
+    number: number;
+    bats: "L" | "R" | "S";
+  };
+  pitcher: {
+    name?: string;
+    team: string;
+    number: number;
+    throws: "L" | "R";
+  };
   situationBlurb: string;
   stakes: string;
   /**
