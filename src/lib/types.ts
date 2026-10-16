@@ -81,9 +81,19 @@ export type LegendaryAtBat = {
   bases: BasesState;
   /** Human label for situation copy */
   runners: string;
-  /** City identity only — never real player names */
-  batter: { team: string; number: number; bats: "L" | "R" | "S" };
-  pitcher: { team: string; number: number; throws: "L" | "R" };
+  /** Franchise nickname + jersey; name when known (legendary moments). */
+  batter: {
+    name?: string;
+    team: string;
+    number: number;
+    bats: "L" | "R" | "S";
+  };
+  pitcher: {
+    name?: string;
+    team: string;
+    number: number;
+    throws: "L" | "R";
+  };
   situationBlurb: string;
   stakes: string;
   /**

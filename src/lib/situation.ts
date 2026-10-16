@@ -35,37 +35,37 @@ export function batterIsHome(atBat: LegendaryAtBat): boolean {
   const team = atBat.batter.team.toLowerCase();
   const home = atBat.home.abbr.toLowerCase();
   const map: Record<string, string[]> = {
-    tor: ["toronto"],
-    tex: ["texas"],
-    ari: ["arizona"],
-    lad: ["los angeles"],
-    hou: ["houston"],
-    bos: ["boston"],
-    cle: ["cleveland"],
-    phi: ["philadelphia"],
-    nyy: ["new york"],
-    nym: ["new york"],
-    sea: ["seattle"],
-    bal: ["baltimore"],
-    stl: ["st. louis", "st louis"],
-    tb: ["tampa bay", "st. petersburg"],
-    wsh: ["washington"],
-    chc: ["chicago"],
-    cws: ["chicago"],
-    mil: ["milwaukee"],
-    det: ["detroit"],
-    fla: ["florida", "miami"],
-    mia: ["miami", "florida"],
-    atl: ["atlanta"],
-    sf: ["san francisco"],
-    ana: ["anaheim", "los angeles"],
-    laa: ["anaheim", "los angeles"],
-    pit: ["pittsburgh"],
-    min: ["minnesota"],
-    oak: ["oakland"],
-    kc: ["kansas city"],
-    sd: ["san diego"],
-    col: ["colorado"],
+    tor: ["toronto", "blue jays"],
+    tex: ["texas", "rangers"],
+    ari: ["arizona", "diamondbacks"],
+    lad: ["los angeles", "dodgers"],
+    hou: ["houston", "astros"],
+    bos: ["boston", "red sox"],
+    cle: ["cleveland", "guardians", "indians"],
+    phi: ["philadelphia", "phillies"],
+    nyy: ["new york", "yankees"],
+    nym: ["new york", "mets"],
+    sea: ["seattle", "mariners"],
+    bal: ["baltimore", "orioles"],
+    stl: ["st. louis", "st louis", "cardinals"],
+    tb: ["tampa bay", "st. petersburg", "rays"],
+    wsh: ["washington", "nationals"],
+    chc: ["chicago", "cubs"],
+    cws: ["chicago", "white sox"],
+    mil: ["milwaukee", "brewers"],
+    det: ["detroit", "tigers"],
+    fla: ["florida", "miami", "marlins"],
+    mia: ["miami", "florida", "marlins"],
+    atl: ["atlanta", "braves"],
+    sf: ["san francisco", "giants"],
+    ana: ["anaheim", "los angeles", "angels"],
+    laa: ["anaheim", "los angeles", "angels"],
+    pit: ["pittsburgh", "pirates"],
+    min: ["minnesota", "twins"],
+    oak: ["oakland", "athletics"],
+    kc: ["kansas city", "royals"],
+    sd: ["san diego", "padres"],
+    col: ["colorado", "rockies"],
   };
   const aliases = map[home] ?? [];
   if (aliases.some((a) => team.includes(a))) return true;
@@ -81,6 +81,16 @@ export function battingSideAbbr(atBat: LegendaryAtBat): string {
 /** Location abbr for the pitching side. */
 export function pitchingSideAbbr(atBat: LegendaryAtBat): string {
   return batterIsHome(atBat) ? atBat.away.abbr : atBat.home.abbr;
+}
+
+/** Plate identity for situation / scorebug copy. */
+export function playerIdentity(person: {
+  name?: string;
+  team: string;
+  number: number;
+}): string {
+  if (person.name) return `${person.name} (${person.team} #${person.number})`;
+  return `${person.team} #${person.number}`;
 }
 
 export function applyBaserunning(

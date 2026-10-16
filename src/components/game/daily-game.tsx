@@ -42,6 +42,7 @@ import {
 import {
   battingSideAbbr,
   pitchingSideAbbr,
+  playerIdentity,
   runnersLabel,
 } from "@/lib/situation";
 import { trackEvent } from "@/lib/analytics";
@@ -908,10 +909,12 @@ function IntroScreen({
             batter={{
               abbr: battingSideAbbr(daily),
               number: daily.batter.number,
+              name: daily.batter.name,
             }}
             pitcher={{
               abbr: pitchingSideAbbr(daily),
               number: daily.pitcher.number,
+              name: daily.pitcher.name,
             }}
           />
         </div>
@@ -979,6 +982,7 @@ function CatalogScreen({
                   <p className="font-medium text-foreground">{ab.codename}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {ab.year} · {ab.series} · {ab.inning}
+                    {ab.batter.name ? ` · ${ab.batter.name}` : ""}
                   </p>
                 </div>
                 {ab.id === dailyId && (
@@ -1096,10 +1100,12 @@ function SituationScreen({
           batter={{
             abbr: battingSideAbbr(atBat),
             number: atBat.batter.number,
+            name: atBat.batter.name,
           }}
           pitcher={{
             abbr: pitchingSideAbbr(atBat),
             number: atBat.pitcher.number,
+            name: atBat.pitcher.name,
           }}
         />
 
@@ -1115,8 +1121,8 @@ function SituationScreen({
           {atBat.situationBlurb}
         </p>
         <p className="text-sm text-muted-foreground">
-          {atBat.batter.team} #{atBat.batter.number} ({atBat.batter.bats}) vs{" "}
-          {atBat.pitcher.team} #{atBat.pitcher.number} · {atBat.runners}
+          {playerIdentity(atBat.batter)} ({atBat.batter.bats}) vs{" "}
+          {playerIdentity(atBat.pitcher)} · {atBat.runners}
         </p>
       </div>
       <div className="grid gap-2">
@@ -1208,10 +1214,12 @@ function PitchScreen({
           batter={{
             abbr: battingSideAbbr(atBat),
             number: atBat.batter.number,
+            name: atBat.batter.name,
           }}
           pitcher={{
             abbr: pitchingSideAbbr(atBat),
             number: atBat.pitcher.number,
+            name: atBat.pitcher.name,
           }}
         />
         {/* Former batter line — non-BIP (and BIP) outcome sits above the zone, clear of Safari chrome */}

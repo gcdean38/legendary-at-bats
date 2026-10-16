@@ -101,18 +101,21 @@ export function isWalkOff(state: InningState): boolean {
   return battingTeamAhead(state);
 }
 
-/** Bot 9: tying sends it to extras — mode ends (2★). */
+/**
+ * Bot 9: inning ended with the game still knotted (3 outs, score tied).
+ * Mid-inning ties keep the rally going — only the third out locks extras.
+ */
 export function isBot9TiedForExtras(state: InningState): boolean {
-  return state.kind === "bot9" && battingTeamTied(state);
+  return (
+    state.kind === "bot9" &&
+    state.outs >= 3 &&
+    battingTeamTied(state)
+  );
 }
 
-/** Three outs, batting side ahead, or Bot 9 tie → extras. */
+/** Three outs, or batting side already ahead (walk-off). */
 export function isInningOver(state: InningState): boolean {
-  return (
-    state.outs >= 3 ||
-    battingTeamAhead(state) ||
-    isBot9TiedForExtras(state)
-  );
+  return state.outs >= 3 || battingTeamAhead(state);
 }
 
 export function abLogLine(play: PlayResult, runsScored: number): string {
@@ -332,7 +335,9 @@ export function createRewriteInning(
   const battingHome = batterIsHome(atBat);
   const first: AbLogEntry = {
     batterIndex: 1,
-    batterLabel: `${atBat.batter.team} #${atBat.batter.number}`,
+    batterLabel: atBat.batter.name
+      ? atBat.batter.name
+      : `${atBat.batter.team} #${atBat.batter.number}`,
     play: session.finalPlay,
     runsScored: session.runsScored,
     line: abLogLine(session.finalPlay, session.runsScored),
@@ -473,11 +478,13 @@ export function atBatFromInning(
 export function advanceInning(
   state: InningState,
   session: AtBatSessionResult,
-  batter: { team: string; number: number },
+  batter: { name?: string; team: string; number: number },
 ): InningState {
   const entry: AbLogEntry = {
     batterIndex: state.batterIndex,
-    batterLabel: `${batter.team} #${batter.number}`,
+    batterLabel: batter.name
+      ? batter.name
+      : `${batter.team} #${batter.number}`,
     play: session.finalPlay,
     runsScored: session.runsScored,
     line: abLogLine(session.finalPlay, session.runsScored),
