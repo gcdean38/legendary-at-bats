@@ -86,7 +86,11 @@ export type LegendaryAtBat = {
   pitcher: { team: string; number: number; throws: "L" | "R" };
   situationBlurb: string;
   stakes: string;
-  /** Scripted pitch pool — recycles if the AB extends (fouls, etc.) */
+  /**
+   * Scripted pitch sequence for the legendary moment.
+   * If the AB is still alive after these, later pitches are drawn from
+   * the pitcher's arsenal (unique types here) with fresh locations.
+   */
   pitches: SeedPitch[];
   historical: {
     outcome: HistoricalOutcome;

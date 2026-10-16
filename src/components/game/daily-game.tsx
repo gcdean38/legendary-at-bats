@@ -21,6 +21,7 @@ import {
   outcomeLabel,
   pitchTypeLabel,
 } from "@/lib/scoring";
+import { generateUnlimitedAtBat } from "@/lib/unlimited";
 import type {
   AtBatEndReason,
   AtBatSessionResult,
@@ -32,6 +33,8 @@ import type {
   ZoneCoord,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
+type PlayMode = "daily" | "practice" | "unlimited";
 
 /** Strike = red, ball = green, ball-in-play = blue */
 function pitchSequenceColor(event: PitchEvent): string {
@@ -59,7 +62,9 @@ export function DailyGame() {
   const [error, setError] = useState<string | null>(null);
   const [atBat, setAtBat] = useState<LegendaryAtBat | null>(null);
   const [dateKey, setDateKey] = useState("");
-  const [isDaily, setIsDaily] = useState(true);
+  const [playMode, setPlayMode] = useState<PlayMode>("daily");
+  const isDaily = playMode === "daily";
+  const isUnlimited = playMode === "unlimited";
   const [pitchCursor, setPitchCursor] = useState(0);
   const [count, setCount] = useState<CountState>({ balls: 0, strikes: 0 });
   const [grades, setGrades] = useState<PitchResultGrade[]>([]);
@@ -84,12 +89,14 @@ export function DailyGame() {
   const postResultDelayRef = useRef<number | null>(null);
   /** Auto-show How to Play only on the first at-bat of this session. */
   const howToSeenRef = useRef(false);
+  /** Running Unlimited at-bat number within this session. */
+  const unlimitedCountRef = useRef(0);
 
   const currentPitch =
     atBat && atBat.pitches.length > 0
       ? pitchAtCursor(atBat.pitches, pitchCursor)
       : null;
-  const recycled =
+  const extended =
     !!atBat && pitchCursor >= atBat.pitches.length && atBat.pitches.length > 0;
 
   useEffect(() => {
@@ -97,7 +104,7 @@ export function DailyGame() {
       const pick = getDailyAtBat(new Date());
       setAtBat(pick.atBat);
       setDateKey(pick.dateKey);
-      setIsDaily(true);
+      setPlayMode("daily");
       const t = window.setTimeout(() => setPhase("intro"), 400);
       return () => window.clearTimeout(t);
     } catch {
@@ -214,17 +221,25 @@ export function DailyGame() {
     setCopied(false);
   }
 
-  function selectAtBat(next: LegendaryAtBat, daily: boolean) {
+  function selectAtBat(next: LegendaryAtBat, mode: PlayMode) {
     cancelFlight();
     resetBattleState();
     setAtBat(next);
-    setIsDaily(daily);
-    setDateKey(daily ? utcDateKey(new Date()) : next.codename);
+    setPlayMode(mode);
+    setDateKey(mode === "daily" ? utcDateKey(new Date()) : next.codename);
     setPhase("situation");
     if (!howToSeenRef.current) {
       howToSeenRef.current = true;
       setHowToOpen(true);
     }
+  }
+
+  function startUnlimited() {
+    unlimitedCountRef.current += 1;
+    selectAtBat(
+      generateUnlimitedAtBat(unlimitedCountRef.current),
+      "unlimited",
+    );
   }
 
   function beginPitch() {
@@ -390,11 +405,12 @@ export function DailyGame() {
   function goHome() {
     cancelFlight();
     resetBattleState();
+    unlimitedCountRef.current = 0;
     try {
       const pick = getDailyAtBat(new Date());
       setAtBat(pick.atBat);
       setDateKey(pick.dateKey);
-      setIsDaily(true);
+      setPlayMode("daily");
     } catch {
       /* keep current */
     }
@@ -424,14 +440,22 @@ export function DailyGame() {
             dateKey={dateKey}
             daily={atBat}
             catalogSize={LEGENDARY_AT_BATS.length}
-            onPlayDaily={() => selectAtBat(atBat, true)}
+            onPlayDaily={() => selectAtBat(atBat, "daily")}
             onOpenCatalog={() => setPhase("catalog")}
+            onUnlimited={startUnlimited}
           />
         )}
         {phase === "catalog" && (
           <CatalogScreen
             dailyId={getDailyAtBat(new Date()).atBat.id}
-            onPick={(ab) => selectAtBat(ab, ab.id === getDailyAtBat(new Date()).atBat.id)}
+            onPick={(ab) =>
+              selectAtBat(
+                ab,
+                ab.id === getDailyAtBat(new Date()).atBat.id
+                  ? "daily"
+                  : "practice",
+              )
+            }
             onBack={() => setPhase("intro")}
           />
         )}
@@ -440,7 +464,7 @@ export function DailyGame() {
             atBat={atBat}
             dateKey={dateKey}
             count={count}
-            isDaily={isDaily}
+            playMode={playMode}
             onStart={() => beginPitchWindup()}
             onBack={goHome}
             onHowTo={() => setHowToOpen(true)}
@@ -455,7 +479,7 @@ export function DailyGame() {
               atBat={atBat}
               pitch={currentPitch}
               pitchNumber={pitchCursor + 1}
-              recycled={recycled}
+              extended={extended}
               phase={phase}
               count={count}
               lastGrade={lastGrade}
@@ -473,8 +497,14 @@ export function DailyGame() {
             session={session}
             copied={copied}
             pending={pending}
+            isUnlimited={isUnlimited}
             onShare={shareResult}
-            onReplay={() => selectAtBat(atBat, isDaily)}
+            onReplay={() =>
+              isUnlimited
+                ? startUnlimited()
+                : selectAtBat(atBat, playMode)
+            }
+            onNextUnlimited={isUnlimited ? startUnlimited : undefined}
             onCatalog={() => {
               resetBattleState();
               setPhase("catalog");
@@ -535,12 +565,14 @@ function IntroScreen({
   daily,
   onPlayDaily,
   onOpenCatalog,
+  onUnlimited,
   catalogSize,
 }: {
   dateKey: string;
   daily: LegendaryAtBat;
   onPlayDaily: () => void;
   onOpenCatalog: () => void;
+  onUnlimited: () => void;
   catalogSize: number;
 }) {
   return (
@@ -568,7 +600,7 @@ function IntroScreen({
           className="h-12 w-full text-base font-semibold tracking-wide"
           onClick={onPlayDaily}
         >
-          Play today’s at-bat
+          Today’s at-bat
         </Button>
         <Button
           size="lg"
@@ -576,7 +608,18 @@ function IntroScreen({
           className="h-12 w-full text-base"
           onClick={onOpenCatalog}
         >
-          Practice all {catalogSize} moments
+          Legendary at-bats
+          <span className="ml-2 text-xs font-normal text-muted-foreground">
+            {catalogSize}
+          </span>
+        </Button>
+        <Button
+          size="lg"
+          variant="secondary"
+          className="h-12 w-full text-base"
+          onClick={onUnlimited}
+        >
+          Unlimited
         </Button>
       </div>
     </section>
@@ -596,7 +639,7 @@ function CatalogScreen({
     <section className="anim-rise flex min-h-[85dvh] flex-col gap-4 py-2">
       <div className="flex items-center justify-between gap-2">
         <p className="font-[family-name:var(--font-display)] text-2xl tracking-wide text-primary">
-          All moments
+          Legendary at-bats
         </p>
         <Button variant="ghost" size="sm" onClick={onBack}>
           Back
@@ -635,7 +678,7 @@ function SituationScreen({
   atBat,
   dateKey,
   count,
-  isDaily,
+  playMode,
   onStart,
   onBack,
   onHowTo,
@@ -643,11 +686,18 @@ function SituationScreen({
   atBat: LegendaryAtBat;
   dateKey: string;
   count: CountState;
-  isDaily: boolean;
+  playMode: PlayMode;
   onStart: () => void;
   onBack: () => void;
   onHowTo: () => void;
 }) {
+  const modeBadge =
+    playMode === "daily"
+      ? dateKey
+      : playMode === "unlimited"
+        ? "Unlimited"
+        : "Practice";
+
   return (
     <section className="anim-rise flex min-h-[85dvh] flex-col justify-between gap-8 py-4">
       <div className="space-y-5">
@@ -665,7 +715,7 @@ function SituationScreen({
               How to play
             </Button>
             <Badge variant="outline" className="rounded-md border-flood/40 text-flood">
-              {isDaily ? dateKey : "Practice"}
+              {modeBadge}
             </Badge>
           </div>
         </div>
@@ -711,7 +761,7 @@ function PitchScreen({
   atBat,
   pitch,
   pitchNumber,
-  recycled,
+  extended,
   phase,
   count,
   lastGrade,
@@ -725,7 +775,7 @@ function PitchScreen({
   atBat: LegendaryAtBat;
   pitch: LegendaryAtBat["pitches"][number];
   pitchNumber: number;
-  recycled: boolean;
+  extended: boolean;
   phase: GamePhase;
   count: CountState;
   lastGrade: PitchResultGrade | null;
@@ -758,7 +808,7 @@ function PitchScreen({
           </p>
           <p className="text-xs text-muted-foreground">
             Pitch {pitchNumber}
-            {recycled ? " · recycled" : ""}
+            {extended ? " · arsenal" : ""}
           </p>
         </div>
         <ScoreBug
@@ -864,8 +914,10 @@ function ResultScreen({
   session,
   copied,
   pending,
+  isUnlimited,
   onShare,
   onReplay,
+  onNextUnlimited,
   onCatalog,
   onHome,
 }: {
@@ -873,8 +925,10 @@ function ResultScreen({
   session: AtBatSessionResult;
   copied: boolean;
   pending: boolean;
+  isUnlimited: boolean;
   onShare: () => void;
   onReplay: () => void;
+  onNextUnlimited?: () => void;
   onCatalog: () => void;
   onHome: () => void;
 }) {
@@ -919,20 +973,22 @@ function ResultScreen({
         </p>
       </div>
 
-      <div className="space-y-2 rounded-md border border-border/80 bg-background/40 p-4">
-        <p className="text-xs uppercase tracking-[0.22em] text-flood">
-          What actually happened
-        </p>
-        <p className="font-medium text-foreground">
-          {outcomeLabel(atBat.historical.outcome)}
-          {atBat.historical.batterSucceeded
-            ? " · Batter came through"
-            : " · Batter failed"}
-        </p>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {atBat.historical.summary}
-        </p>
-      </div>
+      {!isUnlimited && (
+        <div className="space-y-2 rounded-md border border-border/80 bg-background/40 p-4">
+          <p className="text-xs uppercase tracking-[0.22em] text-flood">
+            What actually happened
+          </p>
+          <p className="font-medium text-foreground">
+            {outcomeLabel(atBat.historical.outcome)}
+            {atBat.historical.batterSucceeded
+              ? " · Batter came through"
+              : " · Batter failed"}
+          </p>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {atBat.historical.summary}
+          </p>
+        </div>
+      )}
 
       <div className="space-y-2">
         <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
@@ -961,13 +1017,26 @@ function ResultScreen({
       </div>
 
       <div className="mt-auto grid gap-2">
-        <Button size="lg" className="h-12" onClick={onShare}>
-          {copied ? "Copied!" : "Copy result"}
-        </Button>
-        <div className="grid gap-2 sm:grid-cols-3">
-          <Button size="lg" variant="secondary" className="h-11" onClick={onReplay}>
-            Replay
+        {isUnlimited && onNextUnlimited ? (
+          <Button size="lg" className="h-12" onClick={onNextUnlimited}>
+            Next at-bat
           </Button>
+        ) : (
+          <Button size="lg" className="h-12" onClick={onShare}>
+            {copied ? "Copied!" : "Copy result"}
+          </Button>
+        )}
+        <div className="grid gap-2 sm:grid-cols-3">
+          {!isUnlimited && (
+            <Button size="lg" variant="secondary" className="h-11" onClick={onReplay}>
+              Replay
+            </Button>
+          )}
+          {isUnlimited && (
+            <Button size="lg" variant="secondary" className="h-11" onClick={onShare}>
+              {copied ? "Copied!" : "Copy"}
+            </Button>
+          )}
           <Button size="lg" variant="secondary" className="h-11" onClick={onCatalog}>
             All moments
           </Button>

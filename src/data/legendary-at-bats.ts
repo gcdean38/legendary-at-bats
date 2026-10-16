@@ -4,7 +4,8 @@ import type { LegendaryAtBat } from "@/lib/types";
  * Curated legendary playoff/clutch at-bats (~2016–2025).
  * Titles are "Home City vs Away City". Venue is [City] [Ballpark Noun].
  * Identity is city + jersey # — never real player names.
- * Pitch sequences are stylized for gameplay; they recycle if the AB extends.
+ * Pitch sequences are stylized for gameplay; after the script, later pitches
+ * are drawn from that pitcher's arsenal with fresh locations.
  */
 export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
   {

@@ -1,3 +1,4 @@
+import { arsenalFromPitches, throwFromArsenal } from "@/lib/arsenal";
 import type {
   AtBatEndReason,
   CountState,
@@ -89,17 +90,26 @@ export function applyPitchEvent(
   return { count: { balls, strikes }, ended: false };
 }
 
-/** Next seed pitch; wraps when the scripted pool is exhausted. */
+/**
+ * Next seed pitch.
+ * Scripted order while cursor is in-range; once the sequence is exhausted
+ * (AB still alive), throw a fresh pitch from the pitcher's arsenal
+ * (unique types in the script) — new location, not a recycle of an old one.
+ */
 export function pitchAtCursor(
   pitches: SeedPitch[],
   cursor: number,
+  rng: () => number = Math.random,
 ): SeedPitch {
   if (pitches.length === 0) {
     throw new Error("At-bat has no pitches.");
   }
-  const template = pitches[cursor % pitches.length];
-  return {
-    ...template,
-    id: `${template.id}·${cursor + 1}`,
-  };
+  if (cursor < pitches.length) {
+    const template = pitches[cursor]!;
+    return {
+      ...template,
+      id: `${template.id}·${cursor + 1}`,
+    };
+  }
+  return throwFromArsenal(arsenalFromPitches(pitches), cursor, rng);
 }
