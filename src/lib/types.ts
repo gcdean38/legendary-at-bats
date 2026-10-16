@@ -198,4 +198,5 @@ export type GamePhase =
   | "pitch_windup"
   | "pitch_live"
   | "pitch_result"
+  | "rewrite_offer"
   | "result";
