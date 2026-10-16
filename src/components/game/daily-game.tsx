@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { StrikeZone } from "@/components/game/strike-zone";
+import { PitchCanvas } from "@/components/game/pitch-canvas";
 import { ScoreBug } from "@/components/game/score-bug";
 import { LEGENDARY_AT_BATS } from "@/data/legendary-at-bats";
 import { getDailyAtBat, formatShareSummary, utcDateKey } from "@/lib/daily";
@@ -35,8 +35,10 @@ import { isInStrikeZone } from "@/lib/zone";
 import { cn } from "@/lib/utils";
 
 const FLIGHT_MS = 1400;
-const EXIT_MS = 720;
+const EXIT_MS = 1200;
 const LATE_TAKE_GRACE_MS = 900;
+/** Auto-advance between pitches (3–2–1 grow/fade; not on AB end). */
+const BETWEEN_PITCH_MS = 3000;
 
 export function DailyGame() {
   const [phase, setPhase] = useState<GamePhase>("loading");
@@ -53,7 +55,7 @@ export function DailyGame() {
   const [ballProgress, setBallProgress] = useState(0);
   const [exitProgress, setExitProgress] = useState(0);
   const [copied, setCopied] = useState(false);
-  const [abEnding, setAbEnding] = useState(false);
+  const [continueInSec, setContinueInSec] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
   const flightStart = useRef(0);
   const rafRef = useRef<number | null>(null);
@@ -62,6 +64,8 @@ export function DailyGame() {
   const countRef = useRef<CountState>({ balls: 0, strikes: 0 });
   const cursorRef = useRef(0);
   const pendingEndRef = useRef<AtBatEndReason | null>(null);
+  const continueTimerRef = useRef<number | null>(null);
+  const postResultDelayRef = useRef<number | null>(null);
 
   const currentPitch =
     atBat && atBat.pitches.length > 0
@@ -87,14 +91,58 @@ export function DailyGame() {
   useEffect(() => {
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (continueTimerRef.current) window.clearInterval(continueTimerRef.current);
+      if (postResultDelayRef.current) window.clearTimeout(postResultDelayRef.current);
     };
   }, []);
+
+  // 3–2–1 lives on the front of a pitch (windup), never after a play.
+  useEffect(() => {
+    if (phase !== "pitch_windup") {
+      return;
+    }
+    startWindupCountdown();
+    return () => cancelContinueTimer();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, pitchCursor]);
 
   function cancelFlight() {
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
+  }
+
+  function cancelPostResultDelay() {
+    if (postResultDelayRef.current) {
+      window.clearTimeout(postResultDelayRef.current);
+      postResultDelayRef.current = null;
+    }
+  }
+
+  function cancelContinueTimer() {
+    if (continueTimerRef.current) {
+      window.clearInterval(continueTimerRef.current);
+      continueTimerRef.current = null;
+    }
+    setContinueInSec(null);
+  }
+
+  /** 3–2–1 over the plate, then the pitch flies. */
+  function startWindupCountdown() {
+    cancelContinueTimer();
+    const beats = Math.max(1, Math.round(BETWEEN_PITCH_MS / 1000));
+    let beat = beats;
+    setContinueInSec(beat);
+    continueTimerRef.current = window.setInterval(() => {
+      beat -= 1;
+      if (beat <= 0) {
+        cancelContinueTimer();
+        beginPitch();
+      } else {
+        setContinueInSec(beat);
+      }
+    }, 1000);
   }
 
   function startFlightLoop() {
@@ -111,20 +159,26 @@ export function DailyGame() {
     rafRef.current = requestAnimationFrame(tick);
   }
 
-  function startExitLoop() {
+  function startExitLoop(onDone?: () => void) {
     cancelFlight();
     const start = performance.now();
     setExitProgress(0.01);
     const tick = (now: number) => {
       const p = Math.min(1, (now - start) / EXIT_MS);
       setExitProgress(p);
-      if (p < 1) rafRef.current = requestAnimationFrame(tick);
-      else rafRef.current = null;
+      if (p < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        rafRef.current = null;
+        onDone?.();
+      }
     };
     rafRef.current = requestAnimationFrame(tick);
   }
 
   function resetBattleState() {
+    cancelContinueTimer();
+    cancelPostResultDelay();
     decidedRef.current = false;
     gradesRef.current = [];
     countRef.current = { balls: 0, strikes: 0 };
@@ -138,7 +192,6 @@ export function DailyGame() {
     setAim(undefined);
     setBallProgress(0);
     setExitProgress(0);
-    setAbEnding(false);
     setCopied(false);
   }
 
@@ -152,15 +205,28 @@ export function DailyGame() {
   }
 
   function beginPitch() {
+    cancelContinueTimer();
     decidedRef.current = false;
     setAim(undefined);
     setLastGrade(null);
     setBallProgress(0);
     setExitProgress(0);
-    setAbEnding(false);
     pendingEndRef.current = null;
     setPhase("pitch_live");
     startFlightLoop();
+  }
+
+  /** 3–2–1 over the plate, then the pitch flies. */
+  function beginPitchWindup() {
+    cancelFlight();
+    cancelContinueTimer();
+    decidedRef.current = false;
+    setAim(undefined);
+    setLastGrade(null);
+    setBallProgress(0);
+    setExitProgress(0);
+    pendingEndRef.current = null;
+    setPhase("pitch_windup");
   }
 
   function commitPitchGrade(grade: PitchResultGrade, swingAim?: ZoneCoord) {
@@ -182,16 +248,20 @@ export function DailyGame() {
         ? "max_pitches"
         : null;
     pendingEndRef.current = endReason;
-    setAbEnding(endReason != null);
 
     setBallProgress(1);
     setPhase("pitch_result");
-    if (grade.swung && grade.play !== "foul") {
-      startExitLoop();
-    } else if (grade.swung && grade.play === "foul") {
-      startExitLoop();
+    // After the play anim, advance (windup countdown is on the next pitch).
+    cancelContinueTimer();
+    cancelPostResultDelay();
+    if (grade.swung) {
+      startExitLoop(() => advanceAfterFeedback());
     } else {
       setExitProgress(0);
+      postResultDelayRef.current = window.setTimeout(() => {
+        postResultDelayRef.current = null;
+        advanceAfterFeedback();
+      }, 600);
     }
   }
 
@@ -203,6 +273,7 @@ export function DailyGame() {
       windowMs: FLIGHT_MS,
       bases: atBat.bases,
       outs: atBat.outs,
+      bats: atBat.batter.bats,
     });
     commitPitchGrade(grade);
   }
@@ -217,6 +288,7 @@ export function DailyGame() {
       windowMs: FLIGHT_MS,
       bases: atBat.bases,
       outs: atBat.outs,
+      bats: atBat.batter.bats,
     });
     commitPitchGrade(grade, coord);
   }
@@ -246,9 +318,14 @@ export function DailyGame() {
   }
 
   function advanceAfterFeedback() {
-    if (!atBat || !lastGrade) return;
+    // Called from exit-loop / take-hold timeouts — do NOT gate on
+    // lastGrade state (stale closure; still null in the commit render).
+    if (!atBat || gradesRef.current.length === 0) return;
+    cancelContinueTimer();
+    cancelPostResultDelay();
     cancelFlight();
     if (pendingEndRef.current) {
+      // BIP / AB over — no countdown, go straight to the result
       endAtBat(pendingEndRef.current, countRef.current);
       pendingEndRef.current = null;
       return;
@@ -256,7 +333,8 @@ export function DailyGame() {
     const nextCursor = cursorRef.current + 1;
     cursorRef.current = nextCursor;
     setPitchCursor(nextCursor);
-    beginPitch();
+    // Next pitch: 3–2–1 on the windup (front), then it flies
+    beginPitchWindup();
   }
 
   async function shareResult() {
@@ -264,10 +342,9 @@ export function DailyGame() {
     const text = formatShareSummary({
       dateKey: session.dateKey,
       codename: atBat.codename,
-      score: session.totalScore,
-      maxScore: session.maxScore,
       stars: session.stars,
       verdict: session.historyVerdict,
+      endingTitle: session.endingTitle,
     });
     try {
       if (navigator.clipboard?.writeText) {
@@ -330,13 +407,15 @@ export function DailyGame() {
             dateKey={dateKey}
             count={count}
             isDaily={isDaily}
-            onStart={() => beginPitch()}
+            onStart={() => beginPitchWindup()}
             onBack={goHome}
           />
         )}
         {atBat &&
           currentPitch &&
-          (phase === "pitch_live" || phase === "pitch_result") && (
+          (phase === "pitch_windup" ||
+            phase === "pitch_live" ||
+            phase === "pitch_result") && (
             <PitchScreen
               atBat={atBat}
               pitch={currentPitch}
@@ -349,10 +428,9 @@ export function DailyGame() {
               ballProgress={ballProgress}
               exitProgress={exitProgress}
               flightStart={flightStart.current}
-              abEnding={abEnding}
+              continueInSec={continueInSec}
               onTake={onTake}
               onAim={onAim}
-              onContinue={advanceAfterFeedback}
             />
           )}
         {phase === "result" && atBat && session && (
@@ -630,10 +708,9 @@ function PitchScreen({
   ballProgress,
   exitProgress,
   flightStart,
-  abEnding,
+  continueInSec,
   onTake,
   onAim,
-  onContinue,
 }: {
   atBat: LegendaryAtBat;
   pitch: LegendaryAtBat["pitches"][number];
@@ -646,12 +723,22 @@ function PitchScreen({
   ballProgress: number;
   exitProgress: number;
   flightStart: number;
-  abEnding: boolean;
+  continueInSec: number | null;
   onTake: () => void;
   onAim: (c: ZoneCoord, ms: number) => void;
-  onContinue: () => void;
 }) {
   const live = phase === "pitch_live";
+  const windup = phase === "pitch_windup";
+  const batsLabel =
+    atBat.batter.bats === "L"
+      ? "LHB"
+      : atBat.batter.bats === "S"
+        ? "SHB"
+        : "RHB";
+  const batsHint =
+    atBat.batter.bats === "L"
+      ? "Click = barrel sweet spot · tip points left"
+      : "Click = barrel sweet spot · tip points right";
 
   return (
     <section className="anim-rise flex min-h-[85dvh] flex-col gap-4 py-2">
@@ -673,35 +760,72 @@ function PitchScreen({
           count={count}
           bases={atBat.bases}
         />
-        <p className="text-sm text-muted-foreground">
-          {atBat.batter.team} #{atBat.batter.number} · {pitch.speedMph} mph
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm text-muted-foreground">
+            {atBat.batter.team} #{atBat.batter.number} · {pitch.speedMph} mph
+          </p>
+          <Badge
+            variant="outline"
+            className="rounded-md border-flood/50 text-flood"
+            title={batsHint}
+          >
+            Bats {atBat.batter.bats} · {batsLabel}
+          </Badge>
+        </div>
       </header>
 
-      <StrikeZone
-        interactive={live}
-        live={live}
-        target={pitch.location}
-        pitchType={pitch.type}
-        aim={aim}
-        showTarget={phase === "pitch_result"}
-        ballProgress={live ? Math.max(ballProgress, 0.02) : ballProgress}
-        exitProgress={phase === "pitch_result" ? exitProgress : 0}
-        play={lastGrade?.play ?? null}
-        contactPoint={aim}
-        onAim={onAim}
-        startedAt={flightStart}
-        className="my-1"
-      />
+      <div className="relative my-1">
+        <PitchCanvas
+          interactive={live}
+          live={live}
+          target={pitch.location}
+          pitchType={pitch.type}
+          bats={atBat.batter.bats}
+          aim={aim}
+          showTarget={phase === "pitch_result"}
+          ballProgress={live ? Math.max(ballProgress, 0.02) : ballProgress}
+          exitProgress={phase === "pitch_result" ? exitProgress : 0}
+          play={lastGrade?.play ?? null}
+          timingMs={lastGrade?.timingMs}
+          windowMs={FLIGHT_MS}
+          onAim={onAim}
+          startedAt={flightStart}
+        >
+          {windup &&
+            continueInSec != null &&
+            continueInSec >= 1 && (
+              <div
+                className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                <span
+                  key={`${phase}-${continueInSec}`}
+                  className="anim-countdown-pop font-[family-name:var(--font-display)] text-[7.5rem] leading-none tracking-wide text-primary drop-shadow-[0_0_28px_oklch(0.84_0.15_78/0.55)] sm:text-[9rem]"
+                >
+                  {continueInSec}
+                </span>
+              </div>
+            )}
+        </PitchCanvas>
+      </div>
 
       <div className="mt-4 flex-1 space-y-4">
+        {windup && (
+          <div className="space-y-2 text-center">
+            <p className="text-xs uppercase tracking-[0.25em] text-flood">
+              Get set · {batsLabel}
+            </p>
+            <p className="text-sm text-muted-foreground">{batsHint}</p>
+          </div>
+        )}
+
         {live && (
           <div className="space-y-3">
             <div className="text-center">
               <p className="text-xs uppercase tracking-[0.25em] text-flood">
                 {count.balls}–{count.strikes} · pitch on the way
               </p>
-              <p className="mt-2 text-sm text-foreground/90">{pitch.approachCue}</p>
             </div>
             <Button
               size="lg"
@@ -712,24 +836,24 @@ function PitchScreen({
               Take
             </Button>
             <p className="text-center text-xs text-muted-foreground">
-              Or click the plate where you think it’s going
+              Click the barrel sweet spot ({batsLabel}) — or Take
             </p>
           </div>
         )}
 
         {phase === "pitch_result" && lastGrade && (
           <div className="space-y-3 rounded-md bg-secondary/50 p-4">
-            <p className="font-[family-name:var(--font-display)] text-2xl tracking-wide text-primary">
-              +{lastGrade.pitchScore} pts
+            <p className="text-center text-sm italic text-foreground/90">
+              “{pitch.approachCue}”
             </p>
             <p
               className={cn(
-                "text-sm font-medium",
+                "font-[family-name:var(--font-display)] text-2xl tracking-wide",
                 lastGrade.event === "out"
                   ? "text-destructive"
                   : lastGrade.event === "hit"
                     ? "text-flood"
-                    : "text-foreground",
+                    : "text-primary",
               )}
             >
               {playResultLabel(lastGrade.play)}
@@ -738,6 +862,8 @@ function PitchScreen({
                 · {exitLabel(lastGrade.play)}
                 {lastGrade.launchDeg != null &&
                   lastGrade.swung &&
+                  lastGrade.play !== "whiff" &&
+                  lastGrade.play !== "foul" &&
                   ` · ~${lastGrade.launchDeg}°`}
                 {" · "}
                 {pitchTypeLabel(pitch.type)}
@@ -764,15 +890,14 @@ function PitchScreen({
               {lastGrade.swung && lastGrade.contactQuality != null && (
                 <li>
                   Contact quality {(lastGrade.contactQuality * 100).toFixed(0)}%
+                  {lastGrade.exitVeloMph != null &&
+                    ` · ~${lastGrade.exitVeloMph} mph`}
                   {lastGrade.aimDistance != null &&
                     ` · miss ${lastGrade.aimDistance.toFixed(2)}`}
                 </li>
               )}
               <li className="text-xs">{eventLabel(lastGrade.event)}</li>
             </ul>
-            <Button className="w-full" onClick={onContinue}>
-              {abEnding ? "See the result" : "Next pitch"}
-            </Button>
           </div>
         )}
       </div>
@@ -802,11 +927,17 @@ function ResultScreen({
   const shareText = formatShareSummary({
     dateKey: session.dateKey,
     codename: atBat.codename,
-    score: session.totalScore,
-    maxScore: session.maxScore,
     stars: session.stars,
     verdict: session.historyVerdict,
+    endingTitle: session.endingTitle,
   });
+
+  const starsBlurb =
+    session.stars >= 3
+      ? "Won the game"
+      : session.stars === 2
+        ? "Came through · pass the baton"
+        : "Failed the moment";
 
   return (
     <section className="anim-rise flex min-h-[85dvh] flex-col gap-6 py-4">
@@ -842,18 +973,12 @@ function ResultScreen({
       </div>
 
       <div className="rounded-md bg-secondary/50 p-5 text-center">
-        <p className="font-[family-name:var(--font-display)] text-4xl text-primary">
+        <p className="font-[family-name:var(--font-display)] text-5xl text-primary">
           {"★".repeat(session.stars)}
           {"☆".repeat(3 - session.stars)}
         </p>
-        <p className="mt-2 text-2xl font-semibold tabular-nums">
-          {session.totalScore}
-          <span className="text-base text-muted-foreground">
-            /{session.maxScore}
-          </span>
-        </p>
-        <p className="mt-1 text-xs uppercase tracking-[0.2em] text-muted-foreground">
-          {pending ? "Finalizing…" : "Score"}
+        <p className="mt-2 text-sm font-medium text-foreground">
+          {pending ? "Finalizing…" : starsBlurb}
         </p>
       </div>
 
@@ -884,9 +1009,16 @@ function ResultScreen({
             >
               <span>
                 P{i + 1} · {playResultLabel(g.play)}
-                {g.launchDeg != null && g.swung ? ` · ~${g.launchDeg}°` : ""}
+                {g.launchDeg != null &&
+                g.swung &&
+                g.play !== "whiff" &&
+                g.play !== "foul"
+                  ? ` · ~${g.launchDeg}°`
+                  : ""}
               </span>
-              <span className="tabular-nums text-primary">+{g.pitchScore}</span>
+              <span className="text-xs text-muted-foreground">
+                {g.decisionCorrect ? "read ✓" : "miss"}
+              </span>
             </li>
           ))}
         </ul>

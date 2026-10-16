@@ -60,19 +60,19 @@ export function batterIsHome(atBat: LegendaryAtBat): boolean {
 export function applyBaserunning(
   bases: BasesState,
   play: PlayResult,
-): { bases: BasesState; runs: number; batterOut: boolean } {
+  currentOuts = 0,
+): { bases: BasesState; runs: number; outsRecorded: number } {
   let runs = 0;
   let first = bases.first;
   let second = bases.second;
   let third = bases.third;
-  let batterOut = false;
 
   if (play === "home_run") {
     runs = (first ? 1 : 0) + (second ? 1 : 0) + (third ? 1 : 0) + 1;
     return {
       bases: { first: false, second: false, third: false },
       runs,
-      batterOut: false,
+      outsRecorded: 0,
     };
   }
 
@@ -82,7 +82,7 @@ export function applyBaserunning(
     third = first;
     second = true;
     first = false;
-    return { bases: { first, second, third }, runs, batterOut: false };
+    return { bases: { first, second, third }, runs, outsRecorded: 0 };
   }
 
   if (play === "single" || play === "walk") {
@@ -90,19 +90,25 @@ export function applyBaserunning(
     third = second;
     second = first;
     first = true;
-    if (play === "walk") {
-      // classic force: already handled roughly above for empty/partial
-    }
-    return { bases: { first, second, third }, runs, batterOut: false };
+    return { bases: { first, second, third }, runs, outsRecorded: 0 };
   }
 
   if (play === "sac_fly") {
-    batterOut = true;
     if (third) {
       runs += 1;
       third = false;
     }
-    return { bases: { first, second, third }, runs, batterOut };
+    return { bases: { first, second, third }, runs, outsRecorded: 1 };
+  }
+
+  // Classic force DP: out at 2nd (R1) + batter at 1st. Other runners hold.
+  if (play === "double_play") {
+    const outsRecorded = Math.min(2, 3 - currentOuts);
+    return {
+      bases: { first: false, second, third },
+      runs: 0,
+      outsRecorded,
+    };
   }
 
   if (
@@ -111,10 +117,10 @@ export function applyBaserunning(
     play === "line_out" ||
     play === "strikeout"
   ) {
-    return { bases, runs: 0, batterOut: true };
+    return { bases, runs: 0, outsRecorded: 1 };
   }
 
-  return { bases, runs: 0, batterOut: false };
+  return { bases, runs: 0, outsRecorded: 0 };
 }
 
 function marginForBatter(
@@ -153,6 +159,7 @@ export function resolveEndingNarrative(opts: {
     endReason === "out" ||
     play === "fly_out" ||
     play === "ground_out" ||
+    play === "double_play" ||
     play === "line_out" ||
     play === "strikeout" ||
     endReason === "max_pitches";
@@ -166,6 +173,17 @@ export function resolveEndingNarrative(opts: {
 
   // --- Failures ---
   if (failed && !reachedOrExtra) {
+    if (play === "double_play") {
+      const inningOver = outs + 2 >= 3;
+      return {
+        tone: inningOver ? "failed_lost" : "failed_hope",
+        title: inningOver ? "Failed — double play ends it" : "Double play",
+        blurb: inningOver
+          ? "They turned two. That was the last chance. Better luck tomorrow."
+          : "Force at second, out at first. They turned two — tough AB.",
+        playerCameThrough: false,
+      };
+    }
     if (outs >= 2) {
       return {
         tone: "failed_lost",
