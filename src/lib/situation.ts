@@ -264,8 +264,9 @@ export function resolveEndingNarrative(opts: {
       return {
         tone: "tied_game",
         title: "You tied it",
-        blurb:
-          "Run is in — game knotted up. Hopefully your teammates push it over the top.",
+        blurb: walkOffWindow
+          ? "Game knotted up. Hopefully your team will come through in extras."
+          : "Run is in — game knotted up. Hopefully your teammates push it over the top.",
         playerCameThrough: true,
       };
     }

@@ -92,14 +92,27 @@ function battingTeamAhead(state: InningState): boolean {
     : state.away.runs > state.home.runs;
 }
 
+function battingTeamTied(state: InningState): boolean {
+  return state.home.runs === state.away.runs;
+}
+
 /** Walk-off / took the lead. */
 export function isWalkOff(state: InningState): boolean {
   return battingTeamAhead(state);
 }
 
-/** Three outs, or batting side already ahead. */
+/** Bot 9: tying sends it to extras — mode ends (2★). */
+export function isBot9TiedForExtras(state: InningState): boolean {
+  return state.kind === "bot9" && battingTeamTied(state);
+}
+
+/** Three outs, batting side ahead, or Bot 9 tie → extras. */
 export function isInningOver(state: InningState): boolean {
-  return state.outs >= 3 || battingTeamAhead(state);
+  return (
+    state.outs >= 3 ||
+    battingTeamAhead(state) ||
+    isBot9TiedForExtras(state)
+  );
 }
 
 export function abLogLine(play: PlayResult, runsScored: number): string {
@@ -500,12 +513,15 @@ export function inningSummary(state: InningState): string {
     }
     return margin === 1 ? "Took the lead" : `Took the lead · up ${margin}`;
   }
+  if (isBot9TiedForExtras(state)) {
+    return "Tied · hopefully your team will come through in extras";
+  }
   if (state.outs >= 3) {
     const stillDown = state.battingHome
       ? state.away.runs - state.home.runs
       : state.home.runs - state.away.runs;
     if (stillDown > 0) return `Final · still down ${stillDown}`;
-    return "Final · tied, extras denied";
+    return "Final · tied";
   }
   const runs = state.runsThisInning;
   if (runs === 0) return "Rally · no runs yet";

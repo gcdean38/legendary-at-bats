@@ -31,6 +31,7 @@ import {
   createInning,
   createRewriteInning,
   inningSummary,
+  isBot9TiedForExtras,
   isInningOver,
   isWalkOff,
   shouldOfferRewriteContinue,
@@ -329,13 +330,10 @@ export function DailyGame() {
     selectAtBat(atBatFromInning(state), "inning");
   }
 
-  /** Next batter, or a new Bottom 9 if the inning ended. */
+  /** Next batter in an active Bottom 9 / rewrite rally. */
   function continueInning() {
     const state = inningRef.current;
-    if (!state || isInningOver(state)) {
-      startInning();
-      return;
-    }
+    if (!state || isInningOver(state)) return;
     selectAtBat(atBatFromInning(state), "inning", { skipSituation: true });
   }
 
@@ -740,6 +738,11 @@ export function DailyGame() {
             dateKey={dateKey}
             count={count}
             playMode={playMode}
+            bot9Difficulty={
+              playMode === "inning" && inningSnap?.kind === "bot9"
+                ? inningSnap.bot9?.difficulty ?? null
+                : null
+            }
             onStart={() => beginPitchWindup()}
             onBack={goHome}
             onHowTo={() => setHowToOpen(true)}
@@ -783,16 +786,22 @@ export function DailyGame() {
             isInning={isInning}
             inningOver={isInning && !!inningSnap && isInningOver(inningSnap)}
             walkedOff={isInning && !!inningSnap && isWalkOff(inningSnap)}
+            tiedExtras={
+              isInning && !!inningSnap && isBot9TiedForExtras(inningSnap)
+            }
             inningLine={
               isInning && inningSnap ? inningSummary(inningSnap) : null
             }
             abLog={isInning && inningSnap ? inningSnap.abLog : null}
             inningKind={isInning && inningSnap ? inningSnap.kind : null}
             onShare={shareResult}
-            onReplay={() =>
-              isInning ? startInning() : selectAtBat(atBat, playMode)
+            onReplay={() => selectAtBat(atBat, playMode)}
+            onContinueInning={
+              isInning && inningSnap && !isInningOver(inningSnap)
+                ? continueInning
+                : undefined
             }
-            onContinueInning={isInning ? continueInning : undefined}
+            onNewBot9={startInning}
             onCatalog={() => {
               resetBattleState();
               setPhase("catalog");
@@ -927,30 +936,10 @@ function IntroScreen({
             {catalogSize}
           </span>
         </Button>
-        <div className="rounded-lg bg-secondary px-3 py-3">
-          <p className="mb-2 text-center text-sm font-medium text-secondary-foreground">
-            Bottom of the 9th Mode:
-          </p>
-          <div className="grid grid-cols-3 gap-2">
-            {(
-              [
-                { id: "easy", label: "Easy" },
-                { id: "medium", label: "Medium" },
-                { id: "hard", label: "Hard" },
-              ] as const
-            ).map((opt) => (
-              <Button
-                key={opt.id}
-                size="lg"
-                variant="outline"
-                className="h-11 border-chalk/20 bg-background/40 text-sm font-semibold hover:bg-background/70"
-                onClick={() => onInning(opt.id)}
-              >
-                {opt.label}
-              </Button>
-            ))}
-          </div>
-        </div>
+        <Bot9DifficultyPicker
+          title="Bottom of the 9th Mode:"
+          onPick={onInning}
+        />
       </div>
     </section>
   );
@@ -1004,11 +993,53 @@ function CatalogScreen({
   );
 }
 
+const BOT9_DIFFICULTY_LABEL: Record<Bot9Difficulty, string> = {
+  easy: "Easy",
+  medium: "Medium",
+  hard: "Hard",
+};
+
+function Bot9DifficultyPicker({
+  title,
+  onPick,
+}: {
+  title: string;
+  onPick: (difficulty: Bot9Difficulty) => void;
+}) {
+  return (
+    <div className="rounded-lg bg-secondary px-3 py-3">
+      <p className="mb-2 text-center text-sm font-medium text-secondary-foreground">
+        {title}
+      </p>
+      <div className="grid grid-cols-3 gap-2">
+        {(
+          [
+            { id: "easy", label: "Easy" },
+            { id: "medium", label: "Medium" },
+            { id: "hard", label: "Hard" },
+          ] as const
+        ).map((opt) => (
+          <Button
+            key={opt.id}
+            size="lg"
+            variant="outline"
+            className="h-11 border-chalk/20 bg-background/40 text-sm font-semibold hover:bg-background/70"
+            onClick={() => onPick(opt.id)}
+          >
+            {opt.label}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SituationScreen({
   atBat,
   dateKey,
   count,
   playMode,
+  bot9Difficulty,
   onStart,
   onBack,
   onHowTo,
@@ -1017,6 +1048,7 @@ function SituationScreen({
   dateKey: string;
   count: CountState;
   playMode: PlayMode;
+  bot9Difficulty: Bot9Difficulty | null;
   onStart: () => void;
   onBack: () => void;
   onHowTo: () => void;
@@ -1025,7 +1057,9 @@ function SituationScreen({
     playMode === "daily"
       ? dateKey
       : playMode === "inning"
-        ? "Bot 9"
+        ? bot9Difficulty
+          ? `Bot 9 · ${BOT9_DIFFICULTY_LABEL[bot9Difficulty]}`
+          : "Bot 9"
         : "Practice";
 
   return (
@@ -1324,12 +1358,14 @@ function ResultScreen({
   isInning,
   inningOver,
   walkedOff,
+  tiedExtras,
   inningLine,
   abLog,
   inningKind,
   onShare,
   onReplay,
   onContinueInning,
+  onNewBot9,
   onCatalog,
   onHome,
 }: {
@@ -1340,24 +1376,31 @@ function ResultScreen({
   isInning: boolean;
   inningOver: boolean;
   walkedOff: boolean;
+  tiedExtras: boolean;
   inningLine: string | null;
   abLog: AbLogEntry[] | null;
   inningKind: "bot9" | "rewrite" | null;
   onShare: () => void;
   onReplay: () => void;
   onContinueInning?: () => void;
+  onNewBot9: (difficulty: Bot9Difficulty) => void;
   onCatalog: () => void;
   onHome: () => void;
 }) {
-  const starsBlurb = isInning
-    ? inningOver
-      ? (inningLine ?? "Inning over")
-      : "Keep the line moving"
-    : session.stars >= 3
-      ? "Won the game"
-      : session.stars === 2
-        ? "Do your job"
-        : "Failed the moment";
+  // Bot 9 tie → extras always awards ★★☆.
+  const displayStars = tiedExtras ? 2 : session.stars;
+
+  const starsBlurb = tiedExtras
+    ? "Hopefully your team will come through in extras"
+    : isInning
+      ? inningOver
+        ? (inningLine ?? "Inning over")
+        : "Keep the line moving"
+      : displayStars >= 3
+        ? "Won the game"
+        : displayStars === 2
+          ? "Do your job"
+          : "Failed the moment";
 
   const inningHeadline = !isInning
     ? session.endingTitle
@@ -1365,9 +1408,11 @@ function ResultScreen({
       ? inningKind === "rewrite"
         ? "History rewritten"
         : "Walk-off!"
-      : inningOver
-        ? "Ballgame"
-        : session.endingTitle;
+      : tiedExtras
+        ? "You tied it"
+        : inningOver
+          ? "Ballgame"
+          : session.endingTitle;
 
   return (
     <section className="anim-rise flex min-h-[85dvh] flex-col gap-6 py-4">
@@ -1392,15 +1437,15 @@ function ResultScreen({
           {playResultLabel(session.finalPlay)}
           {session.runsScored > 0 ? ` · ${session.runsScored} R` : ""}
         </p>
-        {isInning && inningLine && (
+        {isInning && inningLine && !tiedExtras && (
           <p className="text-xs text-muted-foreground">{inningLine}</p>
         )}
       </div>
 
       <div className="rounded-md bg-secondary/50 p-5 text-center">
         <p className="font-[family-name:var(--font-display)] text-5xl text-primary">
-          {"★".repeat(session.stars)}
-          {"☆".repeat(3 - session.stars)}
+          {"★".repeat(displayStars)}
+          {"☆".repeat(3 - displayStars)}
         </p>
         <p className="mt-2 text-sm font-medium text-foreground">
           {pending ? "Finalizing…" : starsBlurb}
@@ -1477,13 +1522,18 @@ function ResultScreen({
       )}
 
       <div className="mt-auto grid gap-2">
-        {isInning && onContinueInning ? (
+        {isInning && inningOver ? (
+          <Bot9DifficultyPicker
+            title={
+              inningKind === "rewrite"
+                ? "Bottom of the 9th Mode:"
+                : "New Bottom of the 9th:"
+            }
+            onPick={onNewBot9}
+          />
+        ) : isInning && onContinueInning ? (
           <Button size="lg" className="h-12" onClick={onContinueInning}>
-            {inningOver
-              ? inningKind === "rewrite"
-                ? "Bottom of the 9th"
-                : "New Bottom 9"
-              : "Next batter"}
+            Next batter
           </Button>
         ) : (
           <Button size="lg" className="h-12" onClick={onShare}>
