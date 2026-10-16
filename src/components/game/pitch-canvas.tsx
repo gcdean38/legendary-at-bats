@@ -21,6 +21,7 @@ type Props = {
   ballProgress?: number;
   exitProgress?: number;
   play?: PlayResult | null;
+  launchDeg?: number | null;
   onAim?: (coord: ZoneCoord, timingMs: number) => void;
   startedAt?: number;
   className?: string;
@@ -42,6 +43,7 @@ export function PitchCanvas({
   ballProgress = 0,
   exitProgress = 0,
   play = null,
+  launchDeg = null,
   onAim,
   startedAt = 0,
   className,
@@ -61,7 +63,7 @@ export function PitchCanvas({
   return (
     <div
       className={cn(
-        "relative mx-auto aspect-[3/4] w-full max-w-[300px] select-none overflow-hidden rounded-sm",
+        "relative mx-auto aspect-[4/5] w-full select-none overflow-hidden rounded-sm",
         className,
       )}
     >
@@ -82,6 +84,7 @@ export function PitchCanvas({
             progress={Math.max(exitProgress, 0.05)}
             contact={target}
             bats={bats}
+            launchDeg={launchDeg}
           />
         )}
       </div>
