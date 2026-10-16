@@ -10,6 +10,39 @@ export type RewriteBatter = {
 };
 
 export const REWRITE_LINEUPS: Record<string, RewriteBatter[]> = {
+  /** 2025 WS G7 — Kirk GIDP, Blue Jays trailing late */
+  "2025-ws7-toronto-30": [
+    { name: "Vladimir Guerrero Jr.", number: 27, bats: "R" },
+    { name: "Bo Bichette", number: 11, bats: "R" },
+    { name: "George Springer", number: 4, bats: "R" },
+    { name: "Daulton Varsho", number: 25, bats: "L" },
+    { name: "Ernie Clement", number: 22, bats: "R" },
+    { name: "Andrés Giménez", number: 0, bats: "L" },
+    { name: "Addison Barger", number: 47, bats: "L" },
+    { name: "Nathan Lukes", number: 38, bats: "L" },
+  ],
+  /** 2024 WS G5 — Judge last chance, Yankees trailing */
+  "2024-ws5-newyork-99": [
+    { name: "Juan Soto", number: 22, bats: "L" },
+    { name: "Jazz Chisholm Jr.", number: 13, bats: "L" },
+    { name: "Giancarlo Stanton", number: 27, bats: "R" },
+    { name: "Gleyber Torres", number: 25, bats: "R" },
+    { name: "Anthony Volpe", number: 11, bats: "R" },
+    { name: "Austin Wells", number: 55, bats: "L" },
+    { name: "Alex Verdugo", number: 12, bats: "L" },
+    { name: "Anthony Rizzo", number: 48, bats: "L" },
+  ],
+  /** 2003 NLCS G6 — Gonzalez, Cubs unraveling at Wrigley */
+  "2003-nlcs6-chicago-8": [
+    { name: "Sammy Sosa", number: 21, bats: "R" },
+    { name: "Moises Alou", number: 18, bats: "R" },
+    { name: "Aramis Ramirez", number: 16, bats: "R" },
+    { name: "Kenny Lofton", number: 7, bats: "L" },
+    { name: "Mark Grudzielanek", number: 5, bats: "R" },
+    { name: "Randall Simon", number: 35, bats: "L" },
+    { name: "Damian Miller", number: 20, bats: "R" },
+    { name: "Paul Bako", number: 9, bats: "L" },
+  ],
   /** 2016 WS G7 — Martinez last chance, Indians trailing */
   "2016-ws7-cleveland-1": [
     { name: "Carlos Santana", number: 41, bats: "S" },
