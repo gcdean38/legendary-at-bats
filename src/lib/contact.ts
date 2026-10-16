@@ -157,9 +157,11 @@ export function estimateContact(opts: {
     euclid <= BALL_RADIUS &&
     reach.onBat &&
     tFactor >= 0.35;
-  /** True barrel — in-ball + timing + center contact locked enough for a HR. */
+  /** True barrel — in-ball + timing + proximity ≥ 0.85 for a HR. */
   const flushHr =
     inBallMid && tFactor >= 0.62 && proximity >= 0.85;
+  /** In-ball but shy of HR (e.g. proximity 0.72–0.84 or mistimed) → double. */
+  const inBallDouble = inBallMid && !flushHr;
 
   if (inBallMid) quality = Math.max(quality, flushHr ? 0.97 : 0.9);
 
@@ -170,7 +172,7 @@ export function estimateContact(opts: {
       ? Math.round(clamp(28 + quality * 12, 28, 45))
       : flushHr
         ? 32
-        : inBallDouble || inBallMid
+        : inBallDouble
           ? Math.round(clamp(18 + quality * 8, 14, 28))
           : Math.round(clamp(10 + quality * 12, 8, 24));
 
@@ -243,14 +245,14 @@ export function estimateContact(opts: {
   }
 
   // ---- Midline ----
-  // True barrel (in-ball + solid timing + proximity ≥ 0.8) → home run
+  // True barrel (in-ball + solid timing + proximity ≥ 0.85) → home run
   if (flushHr) {
     exitVeloMph = Math.max(exitVeloMph, exitVeloFromQuality(1));
     return pack("home_run", "crush", vertical, quality, launchDeg, exitVeloMph);
   }
 
-  // In-ball, proximity 0.72–0.79 (or mistimed barrel) → gap double
-  if (inBallDouble || inBallMid) {
+  // In-ball under the HR bar (proximity < 0.85 or mistimed) → gap double
+  if (inBallDouble) {
     exitVeloMph = Math.max(exitVeloMph, exitVeloFromQuality(0.92));
     return pack("double", "crush", vertical, quality, launchDeg, exitVeloMph);
   }
@@ -388,7 +390,8 @@ export const CONTACT_OUTCOME_GUIDE = {
   midline: {
     flush_hr:
       "in-ball on midline + timing ≥ 0.62 + proximity ≥ 0.85 → home run",
-    in_ball_double: "in-ball on midline but not a true barrel → gap double",
+    in_ball_double:
+      "in-ball on midline but proximity < 0.85 (or mistimed) → gap double",
     double: "else quality ≥ 0.68 → gap double",
     single: "else quality ≥ 0.52 → single",
     line_out: "else (weak liner)",
