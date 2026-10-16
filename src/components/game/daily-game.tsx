@@ -9,9 +9,17 @@ import { ScoreBug } from "@/components/game/score-bug";
 import { LEGENDARY_AT_BATS } from "@/data/legendary-at-bats";
 import {
   getDailyAtBat,
+  listDailyHistory,
   formatShareSummary,
   easternDateKey,
+  type DailyHistoryEntry,
 } from "@/lib/daily";
+import {
+  getAllFirstDailyAttempts,
+  getFirstDailyAttempt,
+  saveFirstDailyAttemptIfEmpty,
+  type DailyFirstAttempt,
+} from "@/lib/daily-attempts";
 import { exitLabel, flightMsForPitch } from "@/lib/flight";
 import { playResultLabel } from "@/lib/contact";
 import {
@@ -147,6 +155,10 @@ export function DailyGame() {
   /** Live inning state while playMode === "inning". */
   const inningRef = useRef<InningState | null>(null);
   const inningPopTimerRef = useRef<number | null>(null);
+  /** True when this daily AB is the player's first try for dateKey. */
+  const originalDailyRef = useRef(false);
+  /** Bumps when a first daily attempt is locked so home/archive re-read storage. */
+  const [attemptsTick, setAttemptsTick] = useState(0);
 
   const currentPitch = livePitch;
   const extended =
@@ -307,7 +319,7 @@ export function DailyGame() {
   function selectAtBat(
     next: LegendaryAtBat,
     mode: PlayMode,
-    opts?: { skipSituation?: boolean },
+    opts?: { skipSituation?: boolean; dateKey?: string },
   ) {
     cancelFlight();
     resetBattleState();
@@ -317,7 +329,12 @@ export function DailyGame() {
     }
     setAtBat(next);
     setPlayMode(mode);
-    setDateKey(mode === "daily" ? easternDateKey(new Date()) : next.codename);
+    const nextDateKey =
+      opts?.dateKey ??
+      (mode === "daily" ? easternDateKey(new Date()) : next.codename);
+    setDateKey(nextDateKey);
+    originalDailyRef.current =
+      mode === "daily" && !getFirstDailyAttempt(nextDateKey);
     lockPitchForCursor(next, 0);
     setPhase(opts?.skipSituation ? "pitch_windup" : "situation");
     if (!howToSeenRef.current) {
@@ -498,6 +515,18 @@ export function DailyGame() {
         end_reason: reason,
       });
 
+      // Lock the first daily try only — replays never overwrite.
+      if (playMode === "daily" && originalDailyRef.current) {
+        saveFirstDailyAttemptIfEmpty({
+          dateKey: final.dateKey,
+          atBatId: atBat.id,
+          stars: final.stars,
+          finalPlay: final.finalPlay,
+          endingTitle: final.endingTitle,
+        });
+        setAttemptsTick((n) => n + 1);
+      }
+
       if (inningRef.current) {
         const next = advanceInning(
           inningRef.current,
@@ -586,6 +615,8 @@ export function DailyGame() {
 
   async function shareResult() {
     if (!session || !atBat) return;
+    // Daily mode: only the locked first try is shareable (Wordle-style).
+    if (isDaily && !originalDailyRef.current) return;
     const text = formatShareSummary({
       dateKey: session.dateKey,
       codename: atBat.codename,
@@ -668,7 +699,7 @@ export function DailyGame() {
     setPhase("intro");
   }
 
-  function openCatalog() {
+  function openHistory() {
     resetBattleState();
     clearInningState();
     setPhase("catalog");
@@ -728,24 +759,25 @@ export function DailyGame() {
         )}
         {phase === "intro" && atBat && (
           <IntroScreen
+            key={attemptsTick}
             dateKey={dateKey}
             daily={atBat}
-            catalogSize={LEGENDARY_AT_BATS.length}
+            todayAttempt={getFirstDailyAttempt(dateKey)}
+            archiveCount={listDailyHistory(new Date()).length}
             onPlayDaily={() => selectAtBat(atBat, "daily")}
-            onOpenCatalog={openCatalog}
+            onOpenArchive={openHistory}
             onInning={(difficulty) => startInning(difficulty)}
           />
         )}
         {phase === "catalog" && (
-          <CatalogScreen
-            dailyId={getDailyAtBat(new Date()).atBat.id}
-            onPick={(ab) =>
-              selectAtBat(
-                ab,
-                ab.id === getDailyAtBat(new Date()).atBat.id
-                  ? "daily"
-                  : "practice",
-              )
+          <ArchiveScreen
+            key={attemptsTick}
+            entries={listDailyHistory(new Date())}
+            attempts={getAllFirstDailyAttempts()}
+            onPick={(entry) =>
+              selectAtBat(entry.atBat, "practice", {
+                dateKey: entry.dateKey,
+              })
             }
             onBack={() => {
               clearInningState();
@@ -821,6 +853,11 @@ export function DailyGame() {
                   null
                 : null
             }
+            isDaily={isDaily}
+            canShare={
+              (isInning && inningSnap?.kind === "bot9") ||
+              (isDaily && originalDailyRef.current)
+            }
             onShare={shareResult}
             onReplay={() => {
               const sourceId = inningSnap?.sourceMomentId;
@@ -828,7 +865,15 @@ export function DailyGame() {
                 inningSnap?.kind === "rewrite" && sourceId
                   ? LEGENDARY_AT_BATS.find((m) => m.id === sourceId)
                   : null;
-              selectAtBat(source ?? atBat, source ? "practice" : playMode);
+              selectAtBat(
+                source ?? atBat,
+                source ? "practice" : playMode,
+                source
+                  ? undefined
+                  : playMode === "daily"
+                    ? { dateKey }
+                    : undefined,
+              );
             }}
             onContinueInning={
               isInning && inningSnap && !isInningOver(inningSnap)
@@ -836,7 +881,7 @@ export function DailyGame() {
                 : undefined
             }
             onNewBot9={startInning}
-            onCatalog={openCatalog}
+            onCatalog={openHistory}
             onHome={goHome}
           />
         )}
@@ -891,17 +936,19 @@ function EmptyState({ onRetry }: { onRetry: () => void }) {
 function IntroScreen({
   dateKey,
   daily,
+  todayAttempt,
+  archiveCount,
   onPlayDaily,
-  onOpenCatalog,
+  onOpenArchive,
   onInning,
-  catalogSize,
 }: {
   dateKey: string;
   daily: LegendaryAtBat;
+  todayAttempt: DailyFirstAttempt | null;
+  archiveCount: number;
   onPlayDaily: () => void;
-  onOpenCatalog: () => void;
+  onOpenArchive: () => void;
   onInning: (difficulty: Bot9Difficulty) => void;
-  catalogSize: number;
 }) {
   return (
     <section className="flex min-h-[85dvh] flex-col justify-between gap-10 py-4">
@@ -915,7 +962,7 @@ function IntroScreen({
           <span className="text-primary">At Bats</span>
         </h1>
         <p className="mx-auto max-w-sm text-sm text-muted-foreground sm:text-base">
-          Step into legendary moments. Swing or take — work the count.
+          One new moment each day. Your first try is the one that counts.
         </p>
         <div className="mx-auto w-full max-w-sm space-y-2 text-left">
           <div className="text-center">
@@ -926,8 +973,18 @@ function IntroScreen({
               {daily.codename}
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {daily.gameLabel} · {daily.inning} · {daily.runners}
+              {daily.batter.name ? `${daily.batter.name} · ` : ""}
+              {daily.gameLabel} · {daily.inning}
             </p>
+            {todayAttempt && (
+              <p className="mt-2 text-sm text-primary">
+                First try · {"★".repeat(todayAttempt.stars)}
+                {"☆".repeat(3 - todayAttempt.stars)}
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  {playResultLabel(todayAttempt.finalPlay)}
+                </span>
+              </p>
+            )}
           </div>
           <ScoreBug
             away={daily.away}
@@ -956,75 +1013,110 @@ function IntroScreen({
           className="h-12 w-full text-base font-semibold tracking-wide"
           onClick={onPlayDaily}
         >
-          Today’s at-bat
-        </Button>
-        <Button
-          size="lg"
-          variant="secondary"
-          className="h-12 w-full text-base"
-          onClick={onOpenCatalog}
-        >
-          Legendary at-bats
-          <span className="ml-2 text-xs font-normal text-muted-foreground">
-            {catalogSize}
-          </span>
+          {todayAttempt ? "Replay today’s at-bat" : "Today’s at-bat"}
         </Button>
         <Bot9DifficultyPicker
           title="Bottom of the 9th Mode:"
           onPick={onInning}
         />
+        {archiveCount > 0 && (
+          <Button
+            size="lg"
+            variant="secondary"
+            className="h-12 w-full text-base"
+            onClick={onOpenArchive}
+          >
+            Play the archive
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              {archiveCount}
+            </span>
+          </Button>
+        )}
       </div>
     </section>
   );
 }
 
-function CatalogScreen({
-  dailyId,
+function ArchiveScreen({
+  entries,
+  attempts,
   onPick,
   onBack,
 }: {
-  dailyId: string;
-  onPick: (ab: LegendaryAtBat) => void;
+  entries: DailyHistoryEntry[];
+  attempts: Record<string, DailyFirstAttempt>;
+  onPick: (entry: DailyHistoryEntry) => void;
   onBack: () => void;
 }) {
   return (
     <section className="anim-rise flex min-h-[85dvh] flex-col gap-4 py-2">
       <div className="flex items-center justify-between gap-2">
         <p className="font-[family-name:var(--font-display)] text-2xl tracking-wide text-primary">
-          Legendary at-bats
+          Archive
         </p>
         <Button variant="ghost" size="sm" onClick={onBack}>
           Back
         </Button>
       </div>
-      <ul className="flex flex-1 flex-col gap-2 overflow-y-auto pb-4">
-        {[...LEGENDARY_AT_BATS]
-          .sort((a, b) => b.year - a.year || b.id.localeCompare(a.id))
-          .map((ab) => (
-          <li key={ab.id}>
-            <button
-              type="button"
-              onClick={() => onPick(ab)}
-              className="w-full rounded-md border border-border/70 bg-secondary/40 px-3 py-3 text-left transition hover:border-flood/40 hover:bg-secondary/70"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="font-medium text-foreground">{ab.codename}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {ab.year} · {ab.series} · {ab.inning}
-                    {ab.batter.name ? ` · ${ab.batter.name}` : ""}
-                  </p>
-                </div>
-                {ab.id === dailyId && (
-                  <Badge variant="outline" className="shrink-0 rounded-md text-[10px]">
-                    Today
-                  </Badge>
-                )}
-              </div>
-            </button>
-          </li>
-        ))}
-      </ul>
+      <p className="text-sm text-muted-foreground">
+        Past dailies, newest first. First-try results stick with each day.
+      </p>
+      {entries.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          No archive yet — check back tomorrow.
+        </p>
+      ) : (
+        <ul className="flex flex-1 flex-col gap-2 overflow-y-auto pb-4">
+          {entries.map((entry) => {
+            const attempt = attempts[entry.dateKey];
+            return (
+              <li key={entry.dateKey}>
+                <button
+                  type="button"
+                  onClick={() => onPick(entry)}
+                  className="w-full rounded-md border border-border/70 bg-secondary/40 px-3 py-3 text-left transition hover:border-flood/40 hover:bg-secondary/70"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-flood">
+                        {entry.dateKey}
+                      </p>
+                      <p className="mt-1 font-medium text-foreground">
+                        {entry.atBat.codename}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {entry.atBat.year} · {entry.atBat.series} ·{" "}
+                        {entry.atBat.gameLabel}
+                        {entry.atBat.batter.name
+                          ? ` · ${entry.atBat.batter.name}`
+                          : ""}
+                      </p>
+                    </div>
+                    {attempt ? (
+                      <div className="shrink-0 text-right">
+                        <p className="font-[family-name:var(--font-display)] text-lg text-primary">
+                          {"★".repeat(attempt.stars)}
+                          {"☆".repeat(3 - attempt.stars)}
+                        </p>
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                          First try
+                        </p>
+                      </div>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="shrink-0 rounded-md text-[10px] text-muted-foreground"
+                      >
+                        Unplayed
+                      </Badge>
+                    )}
+                  </div>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </section>
   );
 }
@@ -1096,7 +1188,9 @@ function SituationScreen({
         ? bot9Difficulty
           ? `Bot 9 · ${BOT9_DIFFICULTY_LABEL[bot9Difficulty]}`
           : "Bot 9"
-        : "Practice";
+        : dateKey.startsWith("20")
+          ? dateKey
+          : "Archive";
 
   return (
     <section className="anim-rise flex min-h-[85dvh] flex-col justify-between gap-8 py-4">
@@ -1404,6 +1498,8 @@ function ResultScreen({
   abLog,
   inningKind,
   sourceMoment,
+  isDaily = false,
+  canShare,
   onShare,
   onReplay,
   onContinueInning,
@@ -1423,6 +1519,8 @@ function ResultScreen({
   abLog: AbLogEntry[] | null;
   inningKind: "bot9" | "rewrite" | null;
   sourceMoment: LegendaryAtBat | null;
+  isDaily?: boolean;
+  canShare: boolean;
   onShare: () => void;
   onReplay: () => void;
   onContinueInning?: () => void;
@@ -1506,6 +1604,16 @@ function ResultScreen({
         <p className="mt-2 text-sm font-medium text-foreground">
           {pending ? "Finalizing…" : starsBlurb}
         </p>
+        {isDaily && canShare && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            First try locked · this is the shareable result
+          </p>
+        )}
+        {isDaily && !canShare && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Replay · your first try still counts for the day
+          </p>
+        )}
       </div>
 
       {historyMoment && (
@@ -1587,13 +1695,17 @@ function ResultScreen({
           <Button size="lg" className="h-12" onClick={onContinueInning}>
             Next batter
           </Button>
-        ) : (
+        ) : canShare ? (
           <Button size="lg" className="h-12" onClick={onShare}>
             {shareFlash ?? "Share result"}
           </Button>
-        )}
+        ) : showLegendaryActions ? (
+          <Button size="lg" className="h-12" onClick={onReplay}>
+            Replay
+          </Button>
+        ) : null}
         <div className="grid gap-2 sm:grid-cols-3">
-          {showLegendaryActions && (
+          {showLegendaryActions && canShare && (
             <Button size="lg" variant="secondary" className="h-11" onClick={onReplay}>
               Replay
             </Button>
@@ -1604,7 +1716,7 @@ function ResultScreen({
             </Button>
           )}
           <Button size="lg" variant="secondary" className="h-11" onClick={onCatalog}>
-            All moments
+            Archive
           </Button>
           <Button size="lg" variant="ghost" className="h-11" onClick={onHome}>
             Home
