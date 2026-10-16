@@ -55,7 +55,6 @@ export function DailyGame() {
   const [ballProgress, setBallProgress] = useState(0);
   const [exitProgress, setExitProgress] = useState(0);
   const [copied, setCopied] = useState(false);
-  const [abEnding, setAbEnding] = useState(false);
   const [continueInSec, setContinueInSec] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
   const flightStart = useRef(0);
@@ -67,7 +66,6 @@ export function DailyGame() {
   const pendingEndRef = useRef<AtBatEndReason | null>(null);
   const continueTimerRef = useRef<number | null>(null);
   const postResultDelayRef = useRef<number | null>(null);
-  const countdownActionRef = useRef<"begin" | "advance">("begin");
 
   const currentPitch =
     atBat && atBat.pitches.length > 0
@@ -98,12 +96,12 @@ export function DailyGame() {
     };
   }, []);
 
-  // First-pitch / next-pitch windup: 3–2–1 immediately.
+  // 3–2–1 lives on the front of a pitch (windup), never after a play.
   useEffect(() => {
     if (phase !== "pitch_windup") {
       return;
     }
-    startBetweenPitchCountdown("begin");
+    startWindupCountdown();
     return () => cancelContinueTimer();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, pitchCursor]);
@@ -130,10 +128,9 @@ export function DailyGame() {
     setContinueInSec(null);
   }
 
-  /** 3–2–1 only — call after exit anim finishes (or after a take hold). */
-  function startBetweenPitchCountdown(action: "begin" | "advance") {
+  /** 3–2–1 over the plate, then the pitch flies. */
+  function startWindupCountdown() {
     cancelContinueTimer();
-    countdownActionRef.current = action;
     const beats = Math.max(1, Math.round(BETWEEN_PITCH_MS / 1000));
     let beat = beats;
     setContinueInSec(beat);
@@ -141,8 +138,7 @@ export function DailyGame() {
       beat -= 1;
       if (beat <= 0) {
         cancelContinueTimer();
-        if (countdownActionRef.current === "begin") beginPitch();
-        else advanceAfterFeedback();
+        beginPitch();
       } else {
         setContinueInSec(beat);
       }
@@ -196,7 +192,6 @@ export function DailyGame() {
     setAim(undefined);
     setBallProgress(0);
     setExitProgress(0);
-    setAbEnding(false);
     setCopied(false);
   }
 
@@ -216,7 +211,6 @@ export function DailyGame() {
     setLastGrade(null);
     setBallProgress(0);
     setExitProgress(0);
-    setAbEnding(false);
     pendingEndRef.current = null;
     setPhase("pitch_live");
     startFlightLoop();
@@ -231,7 +225,6 @@ export function DailyGame() {
     setLastGrade(null);
     setBallProgress(0);
     setExitProgress(0);
-    setAbEnding(false);
     pendingEndRef.current = null;
     setPhase("pitch_windup");
   }
@@ -255,21 +248,19 @@ export function DailyGame() {
         ? "max_pitches"
         : null;
     pendingEndRef.current = endReason;
-    setAbEnding(endReason != null);
 
     setBallProgress(1);
     setPhase("pitch_result");
-    // Don't start 3–2–1 until the play animation has finished.
+    // After the play anim, advance (windup countdown is on the next pitch).
     cancelContinueTimer();
     cancelPostResultDelay();
     if (grade.swung) {
-      startExitLoop(() => startBetweenPitchCountdown("advance"));
+      startExitLoop(() => advanceAfterFeedback());
     } else {
-      // Takes: short hold so the call is readable, then countdown
       setExitProgress(0);
       postResultDelayRef.current = window.setTimeout(() => {
         postResultDelayRef.current = null;
-        startBetweenPitchCountdown("advance");
+        advanceAfterFeedback();
       }, 600);
     }
   }
@@ -332,6 +323,7 @@ export function DailyGame() {
     cancelPostResultDelay();
     cancelFlight();
     if (pendingEndRef.current) {
+      // BIP / AB over — no countdown, go straight to the result
       endAtBat(pendingEndRef.current, countRef.current);
       pendingEndRef.current = null;
       return;
@@ -339,7 +331,8 @@ export function DailyGame() {
     const nextCursor = cursorRef.current + 1;
     cursorRef.current = nextCursor;
     setPitchCursor(nextCursor);
-    beginPitch();
+    // Next pitch: 3–2–1 on the windup (front), then it flies
+    beginPitchWindup();
   }
 
   async function shareResult() {
@@ -433,11 +426,9 @@ export function DailyGame() {
               ballProgress={ballProgress}
               exitProgress={exitProgress}
               flightStart={flightStart.current}
-              abEnding={abEnding}
               continueInSec={continueInSec}
               onTake={onTake}
               onAim={onAim}
-              onContinue={advanceAfterFeedback}
             />
           )}
         {phase === "result" && atBat && session && (
@@ -715,11 +706,9 @@ function PitchScreen({
   ballProgress,
   exitProgress,
   flightStart,
-  abEnding,
   continueInSec,
   onTake,
   onAim,
-  onContinue,
 }: {
   atBat: LegendaryAtBat;
   pitch: LegendaryAtBat["pitches"][number];
@@ -732,11 +721,9 @@ function PitchScreen({
   ballProgress: number;
   exitProgress: number;
   flightStart: number;
-  abEnding: boolean;
   continueInSec: number | null;
   onTake: () => void;
   onAim: (c: ZoneCoord, ms: number) => void;
-  onContinue: () => void;
 }) {
   const live = phase === "pitch_live";
   const windup = phase === "pitch_windup";
@@ -802,7 +789,7 @@ function PitchScreen({
           onAim={onAim}
           startedAt={flightStart}
         >
-          {(windup || !live) &&
+          {windup &&
             continueInSec != null &&
             continueInSec >= 1 && (
               <div
@@ -909,18 +896,6 @@ function PitchScreen({
               )}
               <li className="text-xs">{eventLabel(lastGrade.event)}</li>
             </ul>
-            <div className="space-y-2">
-              <p className="text-center text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                {abEnding ? "Result" : "Next pitch"}
-              </p>
-              <Button
-                variant="secondary"
-                className="w-full"
-                onClick={onContinue}
-              >
-                Skip wait
-              </Button>
-            </div>
           </div>
         )}
       </div>
