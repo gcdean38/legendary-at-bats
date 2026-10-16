@@ -318,7 +318,9 @@ export function DailyGame() {
   }
 
   function advanceAfterFeedback() {
-    if (!atBat || !lastGrade) return;
+    // Called from exit-loop / take-hold timeouts — do NOT gate on
+    // lastGrade state (stale closure; still null in the commit render).
+    if (!atBat || gradesRef.current.length === 0) return;
     cancelContinueTimer();
     cancelPostResultDelay();
     cancelFlight();
