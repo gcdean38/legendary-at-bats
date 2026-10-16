@@ -114,12 +114,14 @@ export function StrikeZone({
         })
       : [];
 
+  // Whiffs are not contact — no off-the-bat exit trail / launch arc
   const showingExit =
     !suppressExitOverlay &&
     !!play &&
     play !== "ball" &&
     play !== "strike_looking" &&
     play !== "foul" &&
+    play !== "whiff" &&
     exitProgress > 0 &&
     (contactPoint || aim || target);
   const exitFrom = contactPoint ?? aim ?? target;
@@ -137,8 +139,13 @@ export function StrikeZone({
       ? exitTrackSamples(exitFrom, play, exitProgress, 18, bats, sprayOpts)
       : [];
 
+  // Pitch still arrives at the plate on a whiff (no BIP flight)
   const settledAtPlate =
-    ballProgress >= 1 && exitProgress === 0 && !showTarget ? target : null;
+    play === "whiff" && exitProgress > 0
+      ? target
+      : ballProgress >= 1 && exitProgress === 0 && !showTarget
+        ? target
+        : null;
 
   // Live barrel reticle while aiming (before click)
   const showHoverReticle = interactive && live && !aim && hover;

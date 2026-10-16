@@ -847,6 +847,8 @@ function PitchScreen({
                 · {exitLabel(lastGrade.play)}
                 {lastGrade.launchDeg != null &&
                   lastGrade.swung &&
+                  lastGrade.play !== "whiff" &&
+                  lastGrade.play !== "foul" &&
                   ` · ~${lastGrade.launchDeg}°`}
                 {" · "}
                 {pitchTypeLabel(pitch.type)}
@@ -1004,7 +1006,12 @@ function ResultScreen({
             >
               <span>
                 P{i + 1} · {playResultLabel(g.play)}
-                {g.launchDeg != null && g.swung ? ` · ~${g.launchDeg}°` : ""}
+                {g.launchDeg != null &&
+                g.swung &&
+                g.play !== "whiff" &&
+                g.play !== "foul"
+                  ? ` · ~${g.launchDeg}°`
+                  : ""}
               </span>
               <span className="text-xs text-muted-foreground">
                 {g.decisionCorrect ? "read ✓" : "miss"}

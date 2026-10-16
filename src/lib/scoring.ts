@@ -94,9 +94,12 @@ export function gradePitch(opts: {
     });
     exitKind = contact.exitKind;
     play = contact.play;
-    launchDeg = contact.launchDeg;
-    exitVeloMph = contact.exitVeloMph;
-    contactQuality = contact.quality;
+    // Whiffs aren't contact — no launch angle / exit velo in the log
+    if (contact.play !== "whiff") {
+      launchDeg = contact.launchDeg;
+      exitVeloMph = contact.exitVeloMph;
+      contactQuality = contact.quality;
+    }
     event = contact.event;
   } else if (!swung) {
     if (inZone) {
