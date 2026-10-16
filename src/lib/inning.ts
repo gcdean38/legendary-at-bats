@@ -186,7 +186,11 @@ export function createRewriteInning(
     batterIndex: 2,
     runsThisInning: session.runsScored,
     kind: "rewrite",
-    arsenalTemplates: atBat.pitches,
+    // Pitcher's mix from the legendary script — each AB re-rolls fresh locations.
+    arsenalTemplates: (() => {
+      const mix = arsenalFromPitches(atBat.pitches);
+      return generateOpeningSequence(mix.length > 0 ? mix : GENERIC_ARSENAL, 6);
+    })(),
     sourceCodename: atBat.codename,
     abLog: [first],
   };

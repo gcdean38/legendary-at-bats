@@ -89,6 +89,7 @@ export function DailyGame() {
   const [pitchCursor, setPitchCursor] = useState(0);
   /** Locked pitch for this plate appearance — never re-roll on re-render. */
   const [livePitch, setLivePitch] = useState<SeedPitch | null>(null);
+  const livePitchRef = useRef<SeedPitch | null>(null);
   const [count, setCount] = useState<CountState>({ balls: 0, strikes: 0 });
   const [grades, setGrades] = useState<PitchResultGrade[]>([]);
   const [lastGrade, setLastGrade] = useState<PitchResultGrade | null>(null);
@@ -156,6 +157,7 @@ export function DailyGame() {
   /** Pick once per cursor index — pitchAtCursor uses RNG after the script. */
   function lockPitchForCursor(ab: LegendaryAtBat, cursor: number) {
     const pitch = pitchAtCursor(ab.pitches, cursor);
+    livePitchRef.current = pitch;
     setLivePitch(pitch);
     flightMsRef.current = flightMsForPitch(pitch.type);
     return pitch;
@@ -259,6 +261,7 @@ export function DailyGame() {
     setBallProgress(0);
     setExitProgress(0);
     setCopied(false);
+    livePitchRef.current = null;
     setLivePitch(null);
   }
 
@@ -308,10 +311,12 @@ export function DailyGame() {
     setBallProgress(0);
     setExitProgress(0);
     pendingEndRef.current = null;
-    if (atBat && !livePitch) {
-      lockPitchForCursor(atBat, cursorRef.current);
-    } else if (livePitch) {
-      flightMsRef.current = flightMsForPitch(livePitch.type);
+    // Prefer the ref — setInterval windup can close over a stale livePitch.
+    let pitch = livePitchRef.current;
+    if (!pitch && atBat) {
+      pitch = lockPitchForCursor(atBat, cursorRef.current);
+    } else if (pitch) {
+      flightMsRef.current = flightMsForPitch(pitch.type);
     }
     setPhase("pitch_live");
     startFlightLoop();
@@ -370,9 +375,10 @@ export function DailyGame() {
   }
 
   function onTake() {
-    if (!currentPitch || !atBat || phase !== "pitch_live") return;
+    const pitch = livePitchRef.current;
+    if (!pitch || !atBat || phase !== "pitch_live") return;
     const grade = gradePitch({
-      pitch: currentPitch,
+      pitch,
       decision: "take",
       windowMs: flightMsRef.current,
       bases: atBat.bases,
@@ -384,9 +390,10 @@ export function DailyGame() {
   }
 
   function onAim(coord: ZoneCoord, timingMs: number) {
-    if (!currentPitch || !atBat || phase !== "pitch_live") return;
+    const pitch = livePitchRef.current;
+    if (!pitch || !atBat || phase !== "pitch_live") return;
     const grade = gradePitch({
-      pitch: currentPitch,
+      pitch,
       decision: "swing",
       aim: coord,
       timingMs,
