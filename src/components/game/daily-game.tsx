@@ -927,9 +927,9 @@ function IntroScreen({
             {catalogSize}
           </span>
         </Button>
-        <div className="space-y-2">
-          <p className="text-center text-xs uppercase tracking-[0.22em] text-muted-foreground">
-            Bottom of the 9th
+        <div className="rounded-lg bg-secondary px-3 py-3">
+          <p className="mb-2 text-center text-sm font-medium text-secondary-foreground">
+            Bottom of the 9th Mode:
           </p>
           <div className="grid grid-cols-3 gap-2">
             {(
@@ -942,8 +942,8 @@ function IntroScreen({
               <Button
                 key={opt.id}
                 size="lg"
-                variant="secondary"
-                className="h-14 flex-col gap-0.5 px-1 text-sm"
+                variant="outline"
+                className="h-14 flex-col gap-0.5 border-chalk/20 bg-background/40 px-1 text-sm hover:bg-background/70"
                 onClick={() => onInning(opt.id)}
               >
                 <span className="font-semibold">{opt.label}</span>
