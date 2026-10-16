@@ -1,9 +1,9 @@
 import type { LegendaryAtBat } from "@/lib/types";
+import { CONTEMPORARY_ERA_EXPANSION } from "@/data/legendary-era-expansion";
 
 /**
- * Curated legendary playoff/clutch at-bats (~2000–2025), target ~36.
- * Titles are "Home City vs Away City". Venues use real ballpark names.
- * Player names + franchise nicknames (no logos).
+ * Curated legendary playoff/clutch at-bats — Contemporary Era (1980–present).
+ * Target 64 moments. Franchise nicknames + real player/venue names (no logos).
  * Pitch sequences are stylized for gameplay; after the script, later pitches
  * are drawn from that pitcher's arsenal with fresh locations.
  */
@@ -1790,4 +1790,5 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
         "Jose Bautista crushed a go-ahead three-run blast in the seventh of ALDS Game 5 at Rogers Centre — bat flip, bedlam, and a Division Series ticket punched.",
     },
   },
+  ...CONTEMPORARY_ERA_EXPANSION,
 ];
