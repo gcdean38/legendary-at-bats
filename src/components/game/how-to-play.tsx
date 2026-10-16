@@ -54,18 +54,6 @@ export function HowToPlayOverlay({ onDismiss }: Props) {
               3
             </span>
             <span>
-              <strong className="text-chalk">Above</strong> the ball’s midpoint
-              = grounder. <strong className="text-chalk">Flush</strong> on the
-              middle = homer. Midline miss = liner.{" "}
-              <strong className="text-chalk">Under</strong> the ball = fly out.
-              Miss entirely = whiff.
-            </span>
-          </li>
-          <li className="flex gap-3">
-            <span className="font-[family-name:var(--font-display)] text-lg text-primary">
-              4
-            </span>
-            <span>
               Work the count. Stars rate how the at-bat ends — win the game,
               do your job, or fall short.
             </span>
