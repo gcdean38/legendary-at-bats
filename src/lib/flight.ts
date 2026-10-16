@@ -11,6 +11,43 @@ import {
  */
 const RELEASE: ZoneCoord = { x: 0.5, y: 0.42 };
 
+/** Pitch families for flight timing (Statcast-style buckets). */
+export type PitchFamily = "fastball" | "breaking" | "offspeed";
+
+export function pitchFamily(type: PitchType): PitchFamily {
+  switch (type) {
+    case "FF":
+    case "SI":
+    case "CT": // hard / fastball-adjacent
+      return "fastball";
+    case "CH":
+      return "offspeed";
+    case "SL":
+    case "CU":
+    default:
+      return "breaking";
+  }
+}
+
+/** Baseline flight window for breaking stuff — FF faster, CH slower. */
+export const FLIGHT_MS_BREAKING = 1400;
+
+/**
+ * How long the pitch takes to reach the plate (ms).
+ * Fastballs a bit quicker, changeups a bit slower, breaking held.
+ */
+export function flightMsForPitch(type: PitchType): number {
+  switch (pitchFamily(type)) {
+    case "fastball":
+      return 1180;
+    case "offspeed":
+      return 1680;
+    case "breaking":
+    default:
+      return FLIGHT_MS_BREAKING;
+  }
+}
+
 function clamp01(n: number) {
   return Math.min(1, Math.max(0, n));
 }

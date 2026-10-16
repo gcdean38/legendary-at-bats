@@ -8,7 +8,7 @@ import { PitchCanvas } from "@/components/game/pitch-canvas";
 import { ScoreBug } from "@/components/game/score-bug";
 import { LEGENDARY_AT_BATS } from "@/data/legendary-at-bats";
 import { getDailyAtBat, formatShareSummary, utcDateKey } from "@/lib/daily";
-import { exitLabel } from "@/lib/flight";
+import { exitLabel, flightMsForPitch } from "@/lib/flight";
 import { playResultLabel } from "@/lib/contact";
 import {
   MAX_PITCHES_PER_AB,
@@ -35,9 +35,9 @@ import type {
 import { isInStrikeZone } from "@/lib/zone";
 import { cn } from "@/lib/utils";
 
-const FLIGHT_MS = 1400;
 const EXIT_MS = 1200;
-const LATE_TAKE_GRACE_MS = 900;
+/** After the pitch arrives, brief beat then auto-take if no swing. */
+const LATE_TAKE_GRACE_MS = 450;
 /** Auto-advance between pitches (3–2–1 grow/fade; not on AB end). */
 const BETWEEN_PITCH_MS = 3000;
 
@@ -60,6 +60,7 @@ export function DailyGame() {
   const [howToOpen, setHowToOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const flightStart = useRef(0);
+  const flightMsRef = useRef(1400);
   const rafRef = useRef<number | null>(null);
   const decidedRef = useRef(false);
   const gradesRef = useRef<PitchResultGrade[]>([]);
@@ -152,8 +153,9 @@ export function DailyGame() {
     flightStart.current = performance.now();
     setBallProgress(0);
     setExitProgress(0);
+    const windowMs = flightMsRef.current;
     const tick = (now: number) => {
-      const p = Math.min(1, (now - flightStart.current) / FLIGHT_MS);
+      const p = Math.min(1, (now - flightStart.current) / windowMs);
       setBallProgress(p);
       if (p < 1) rafRef.current = requestAnimationFrame(tick);
       else rafRef.current = null;
@@ -215,6 +217,10 @@ export function DailyGame() {
     setBallProgress(0);
     setExitProgress(0);
     pendingEndRef.current = null;
+    const pitch = atBat
+      ? pitchAtCursor(atBat.pitches, cursorRef.current)
+      : null;
+    flightMsRef.current = pitch ? flightMsForPitch(pitch.type) : 1400;
     setPhase("pitch_live");
     startFlightLoop();
   }
@@ -273,7 +279,7 @@ export function DailyGame() {
     const grade = gradePitch({
       pitch: currentPitch,
       decision: "take",
-      windowMs: FLIGHT_MS,
+      windowMs: flightMsRef.current,
       bases: atBat.bases,
       outs: atBat.outs,
       bats: atBat.batter.bats,
@@ -288,7 +294,7 @@ export function DailyGame() {
       decision: "swing",
       aim: coord,
       timingMs,
-      windowMs: FLIGHT_MS,
+      windowMs: flightMsRef.current,
       bases: atBat.bases,
       outs: atBat.outs,
       bats: atBat.batter.bats,
@@ -437,7 +443,6 @@ export function DailyGame() {
               exitProgress={exitProgress}
               flightStart={flightStart.current}
               continueInSec={continueInSec}
-              onTake={onTake}
               onAim={onAim}
             />
           )}
@@ -529,8 +534,8 @@ function IntroScreen({
           <span className="text-primary">At Bats</span>
         </h1>
         <p className="mx-auto max-w-md text-base leading-relaxed text-muted-foreground sm:text-lg">
-          Watch the pitch. Take or swing where it’s going. Work the count — then
-          see if you matched the legend or changed history.
+          Watch the pitch. Swing where it’s going — or hold off to take. Work
+          the count, then see if you matched the legend or changed history.
         </p>
         <p className="text-sm text-muted-foreground">
           Today:{" "}
@@ -729,7 +734,6 @@ function PitchScreen({
   exitProgress,
   flightStart,
   continueInSec,
-  onTake,
   onAim,
 }: {
   atBat: LegendaryAtBat;
@@ -744,7 +748,6 @@ function PitchScreen({
   exitProgress: number;
   flightStart: number;
   continueInSec: number | null;
-  onTake: () => void;
   onAim: (c: ZoneCoord, ms: number) => void;
 }) {
   const live = phase === "pitch_live";
@@ -807,7 +810,7 @@ function PitchScreen({
           exitProgress={phase === "pitch_result" ? exitProgress : 0}
           play={lastGrade?.play ?? null}
           timingMs={lastGrade?.timingMs}
-          windowMs={FLIGHT_MS}
+          windowMs={flightMsForPitch(pitch.type)}
           onAim={onAim}
           startedAt={flightStart}
         >
@@ -846,18 +849,10 @@ function PitchScreen({
               <p className="text-xs uppercase tracking-[0.25em] text-flood">
                 {count.balls}–{count.strikes} · pitch on the way
               </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Click the barrel sweet spot ({batsLabel}) · hold off to take
+              </p>
             </div>
-            <Button
-              size="lg"
-              variant="secondary"
-              className="h-14 w-full text-base"
-              onClick={onTake}
-            >
-              Take
-            </Button>
-            <p className="text-center text-xs text-muted-foreground">
-              Click the barrel sweet spot ({batsLabel}) — or Take
-            </p>
           </div>
         )}
 
@@ -956,7 +951,7 @@ function ResultScreen({
     session.stars >= 3
       ? "Won the game"
       : session.stars === 2
-        ? "Came through · pass the baton"
+        ? "Do your job"
         : "Failed the moment";
 
   return (

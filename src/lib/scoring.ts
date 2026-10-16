@@ -37,7 +37,7 @@ export function zoneDistance(a: ZoneCoord, b: ZoneCoord): number {
 
 /**
  * Outcome stars — no pitch points.
- * 3 = won the game · 2 = came through / pass the baton · 1 = failed
+ * 3 = won the game · 2 = do your job · 1 = failed
  */
 export function starsFromEnding(tone: EndingTone): number {
   switch (tone) {

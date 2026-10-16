@@ -35,8 +35,8 @@ export function HowToPlayOverlay({ onDismiss }: Props) {
             </span>
             <span>
               After the <strong className="text-chalk">3–2–1</strong>, the pitch
-              comes through the zone. Click the plate to swing, or tap{" "}
-              <strong className="text-chalk">Take</strong>.
+              comes through the zone. Click the plate to swing — don’t click and
+              it counts as a <strong className="text-chalk">take</strong>.
             </span>
           </li>
           <li className="flex gap-3">
@@ -65,7 +65,7 @@ export function HowToPlayOverlay({ onDismiss }: Props) {
             </span>
             <span>
               Work the count. Stars rate how the at-bat ends — win the game,
-              come through, or fall short.
+              do your job, or fall short.
             </span>
           </li>
         </ol>

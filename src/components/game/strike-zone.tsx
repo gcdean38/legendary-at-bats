@@ -342,7 +342,7 @@ export function StrikeZone({
       {!hideCaption && (
         <p className="absolute -bottom-7 left-0 right-0 text-center text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
           {interactive
-            ? "Click the plate — zone or chase — or Take"
+            ? "Click the plate to swing — hold off to take"
             : "Plate · strike zone inset"}
         </p>
       )}
