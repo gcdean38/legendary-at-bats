@@ -30,7 +30,6 @@ import {
   isWalkOff,
   type InningState,
 } from "@/lib/inning";
-// isWalkOff used below for result headline
 import type {
   AtBatEndReason,
   AtBatSessionResult,
