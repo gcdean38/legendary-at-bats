@@ -1746,7 +1746,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     },
   },
   {
-    id: "2015-alds5-toronto-10",
+    id: "2015-alds5-toronto-19",
     codename: "Toronto vs Texas",
     year: 2015,
     series: "ALDS",
@@ -1758,14 +1758,14 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     home: { abbr: "TOR", runs: 2 },
     bases: { first: true, second: false, third: true },
     runners: "Runners on the corners",
-    batter: { team: "Toronto", number: 10, bats: "R" },
+    batter: { team: "Toronto", number: 19, bats: "R" },
     pitcher: { team: "Texas", number: 45, throws: "R" },
     situationBlurb:
-      "Winner-take-all ALDS Game 5 at Toronto Centre. Down one, corners occupied after a chaotic seventh. You are Toronto #10.",
+      "Winner-take-all ALDS Game 5 at Toronto Centre. Down one, corners occupied after a chaotic seventh. You are Toronto #19.",
     stakes: "Take the lead and punch the ticket — miss and the inning can still implode.",
     pitches: [
       {
-        id: "tor10b-p1",
+        id: "tor19-p1",
         type: "FF",
         speedMph: 95,
         location: { x: 0.7, y: 0.7 },
@@ -1774,7 +1774,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
         approachCue: "Heater off the outer edge. Wait for yours.",
       },
       {
-        id: "tor10b-p2",
+        id: "tor19-p2",
         type: "SL",
         speedMph: 86,
         location: { x: 0.48, y: 0.5 },
@@ -1787,7 +1787,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "home_run",
       batterSucceeded: true,
       summary:
-        "Toronto #10 crushed a go-ahead three-run blast in the seventh of ALDS Game 5 at Toronto Centre — bat flip, bedlam, and a Division Series ticket punched.",
+        "Toronto #19 crushed a go-ahead three-run blast in the seventh of ALDS Game 5 at Toronto Centre — bat flip, bedlam, and a Division Series ticket punched.",
     },
   },
 ];
