@@ -21,6 +21,15 @@ import {
   outcomeLabel,
   pitchTypeLabel,
 } from "@/lib/scoring";
+import {
+  advanceInning,
+  atBatFromInning,
+  createInning,
+  inningSummary,
+  isInningOver,
+  isWalkOff,
+  type InningState,
+} from "@/lib/inning";
 import type {
   AtBatEndReason,
   AtBatSessionResult,
@@ -32,6 +41,8 @@ import type {
   ZoneCoord,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
+type PlayMode = "daily" | "practice" | "inning";
 
 /** Strike = red, ball = green, ball-in-play = blue */
 function pitchSequenceColor(event: PitchEvent): string {
@@ -53,13 +64,22 @@ const EXIT_MS = 1200;
 const LATE_TAKE_GRACE_MS = 450;
 /** Auto-advance between pitches (3–2–1 grow/fade; not on AB end). */
 const BETWEEN_PITCH_MS = 3000;
+/** Bot 9 mid-inning: show outcome pop, then next batter. */
+const INNING_POP_MS = 1500;
 
 export function DailyGame() {
   const [phase, setPhase] = useState<GamePhase>("loading");
   const [error, setError] = useState<string | null>(null);
   const [atBat, setAtBat] = useState<LegendaryAtBat | null>(null);
   const [dateKey, setDateKey] = useState("");
-  const [isDaily, setIsDaily] = useState(true);
+  const [playMode, setPlayMode] = useState<PlayMode>("daily");
+  const isDaily = playMode === "daily";
+  const isInning = playMode === "inning";
+  const [inningSnap, setInningSnap] = useState<InningState | null>(null);
+  const [inningPop, setInningPop] = useState<{
+    line: string;
+    sub: string;
+  } | null>(null);
   const [pitchCursor, setPitchCursor] = useState(0);
   const [count, setCount] = useState<CountState>({ balls: 0, strikes: 0 });
   const [grades, setGrades] = useState<PitchResultGrade[]>([]);
@@ -84,12 +104,15 @@ export function DailyGame() {
   const postResultDelayRef = useRef<number | null>(null);
   /** Auto-show How to Play only on the first at-bat of this session. */
   const howToSeenRef = useRef(false);
+  /** Live inning state while playMode === "inning". */
+  const inningRef = useRef<InningState | null>(null);
+  const inningPopTimerRef = useRef<number | null>(null);
 
   const currentPitch =
     atBat && atBat.pitches.length > 0
       ? pitchAtCursor(atBat.pitches, pitchCursor)
       : null;
-  const recycled =
+  const extended =
     !!atBat && pitchCursor >= atBat.pitches.length && atBat.pitches.length > 0;
 
   useEffect(() => {
@@ -97,7 +120,7 @@ export function DailyGame() {
       const pick = getDailyAtBat(new Date());
       setAtBat(pick.atBat);
       setDateKey(pick.dateKey);
-      setIsDaily(true);
+      setPlayMode("daily");
       const t = window.setTimeout(() => setPhase("intro"), 400);
       return () => window.clearTimeout(t);
     } catch {
@@ -111,8 +134,16 @@ export function DailyGame() {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       if (continueTimerRef.current) window.clearInterval(continueTimerRef.current);
       if (postResultDelayRef.current) window.clearTimeout(postResultDelayRef.current);
+      if (inningPopTimerRef.current) window.clearTimeout(inningPopTimerRef.current);
     };
   }, []);
+
+  function clearInningPopTimer() {
+    if (inningPopTimerRef.current) {
+      window.clearTimeout(inningPopTimerRef.current);
+      inningPopTimerRef.current = null;
+    }
+  }
 
   // 3–2–1 lives on the front of a pitch (windup), never after a play.
   useEffect(() => {
@@ -214,17 +245,41 @@ export function DailyGame() {
     setCopied(false);
   }
 
-  function selectAtBat(next: LegendaryAtBat, daily: boolean) {
+  function selectAtBat(
+    next: LegendaryAtBat,
+    mode: PlayMode,
+    opts?: { skipSituation?: boolean },
+  ) {
     cancelFlight();
     resetBattleState();
     setAtBat(next);
-    setIsDaily(daily);
-    setDateKey(daily ? utcDateKey(new Date()) : next.codename);
-    setPhase("situation");
+    setPlayMode(mode);
+    setDateKey(mode === "daily" ? utcDateKey(new Date()) : next.codename);
+    setPhase(opts?.skipSituation ? "pitch_windup" : "situation");
     if (!howToSeenRef.current) {
       howToSeenRef.current = true;
       setHowToOpen(true);
     }
+  }
+
+  /** Fresh bottom of the 9th — down 0–3, empty bases. */
+  function startInning() {
+    clearInningPopTimer();
+    setInningPop(null);
+    const state = createInning();
+    inningRef.current = state;
+    setInningSnap(state);
+    selectAtBat(atBatFromInning(state), "inning");
+  }
+
+  /** Next batter, or a new Bottom 9 if the inning ended. */
+  function continueInning() {
+    const state = inningRef.current;
+    if (!state || isInningOver(state)) {
+      startInning();
+      return;
+    }
+    selectAtBat(atBatFromInning(state), "inning", { skipSituation: true });
   }
 
   function beginPitch() {
@@ -342,6 +397,30 @@ export function DailyGame() {
         finalCount,
       });
       setSession(final);
+
+      if (inningRef.current) {
+        const next = advanceInning(inningRef.current, final);
+        inningRef.current = next;
+        setInningSnap(next);
+
+        const line = `${playResultLabel(final.finalPlay)}${
+          final.runsScored > 0 ? ` · ${final.runsScored} R` : ""
+        }`;
+
+        // Mid-inning: bug pop → auto next batter (skip full result screen)
+        if (!isInningOver(next)) {
+          clearInningPopTimer();
+          setInningPop({ line, sub: final.endingTitle });
+          inningPopTimerRef.current = window.setTimeout(() => {
+            inningPopTimerRef.current = null;
+            setInningPop(null);
+            continueInning();
+          }, INNING_POP_MS);
+          return;
+        }
+      }
+
+      setInningPop(null);
       setPhase("result");
     });
   }
@@ -390,11 +469,15 @@ export function DailyGame() {
   function goHome() {
     cancelFlight();
     resetBattleState();
+    clearInningPopTimer();
+    setInningPop(null);
+    inningRef.current = null;
+    setInningSnap(null);
     try {
       const pick = getDailyAtBat(new Date());
       setAtBat(pick.atBat);
       setDateKey(pick.dateKey);
-      setIsDaily(true);
+      setPlayMode("daily");
     } catch {
       /* keep current */
     }
@@ -414,6 +497,23 @@ export function DailyGame() {
         <HowToPlayOverlay onDismiss={() => setHowToOpen(false)} />
       )}
 
+      {inningPop && (
+        <div
+          className="pointer-events-none fixed inset-x-0 top-[4.5rem] z-40 flex justify-center px-4"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="anim-rise w-full max-w-lg rounded-md border border-flood/40 bg-card/95 px-4 py-3 shadow-[0_8px_28px_oklch(0.1_0.02_155/0.55)] backdrop-blur-sm">
+            <p className="font-[family-name:var(--font-display)] text-2xl tracking-wide text-flood">
+              {inningPop.line}
+            </p>
+            <p className="mt-0.5 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              {inningPop.sub}
+            </p>
+          </div>
+        </div>
+      )}
+
       <main className="relative z-10 mx-auto flex w-full max-w-lg flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
         {phase === "loading" && <LoadingState />}
         {phase === "error" && (
@@ -424,14 +524,22 @@ export function DailyGame() {
             dateKey={dateKey}
             daily={atBat}
             catalogSize={LEGENDARY_AT_BATS.length}
-            onPlayDaily={() => selectAtBat(atBat, true)}
+            onPlayDaily={() => selectAtBat(atBat, "daily")}
             onOpenCatalog={() => setPhase("catalog")}
+            onInning={startInning}
           />
         )}
         {phase === "catalog" && (
           <CatalogScreen
             dailyId={getDailyAtBat(new Date()).atBat.id}
-            onPick={(ab) => selectAtBat(ab, ab.id === getDailyAtBat(new Date()).atBat.id)}
+            onPick={(ab) =>
+              selectAtBat(
+                ab,
+                ab.id === getDailyAtBat(new Date()).atBat.id
+                  ? "daily"
+                  : "practice",
+              )
+            }
             onBack={() => setPhase("intro")}
           />
         )}
@@ -440,7 +548,7 @@ export function DailyGame() {
             atBat={atBat}
             dateKey={dateKey}
             count={count}
-            isDaily={isDaily}
+            playMode={playMode}
             onStart={() => beginPitchWindup()}
             onBack={goHome}
             onHowTo={() => setHowToOpen(true)}
@@ -455,7 +563,7 @@ export function DailyGame() {
               atBat={atBat}
               pitch={currentPitch}
               pitchNumber={pitchCursor + 1}
-              recycled={recycled}
+              extended={extended}
               phase={phase}
               count={count}
               lastGrade={lastGrade}
@@ -473,8 +581,17 @@ export function DailyGame() {
             session={session}
             copied={copied}
             pending={pending}
+            isInning={isInning}
+            inningOver={isInning && !!inningSnap && isInningOver(inningSnap)}
+            walkedOff={isInning && !!inningSnap && isWalkOff(inningSnap)}
+            inningLine={
+              isInning && inningSnap ? inningSummary(inningSnap) : null
+            }
             onShare={shareResult}
-            onReplay={() => selectAtBat(atBat, isDaily)}
+            onReplay={() =>
+              isInning ? startInning() : selectAtBat(atBat, playMode)
+            }
+            onContinueInning={isInning ? continueInning : undefined}
             onCatalog={() => {
               resetBattleState();
               setPhase("catalog");
@@ -535,12 +652,14 @@ function IntroScreen({
   daily,
   onPlayDaily,
   onOpenCatalog,
+  onInning,
   catalogSize,
 }: {
   dateKey: string;
   daily: LegendaryAtBat;
   onPlayDaily: () => void;
   onOpenCatalog: () => void;
+  onInning: () => void;
   catalogSize: number;
 }) {
   return (
@@ -568,7 +687,7 @@ function IntroScreen({
           className="h-12 w-full text-base font-semibold tracking-wide"
           onClick={onPlayDaily}
         >
-          Play today’s at-bat
+          Today’s at-bat
         </Button>
         <Button
           size="lg"
@@ -576,7 +695,18 @@ function IntroScreen({
           className="h-12 w-full text-base"
           onClick={onOpenCatalog}
         >
-          Practice all {catalogSize} moments
+          Legendary at-bats
+          <span className="ml-2 text-xs font-normal text-muted-foreground">
+            {catalogSize}
+          </span>
+        </Button>
+        <Button
+          size="lg"
+          variant="secondary"
+          className="h-12 w-full text-base"
+          onClick={onInning}
+        >
+          Bottom of the 9th
         </Button>
       </div>
     </section>
@@ -596,7 +726,7 @@ function CatalogScreen({
     <section className="anim-rise flex min-h-[85dvh] flex-col gap-4 py-2">
       <div className="flex items-center justify-between gap-2">
         <p className="font-[family-name:var(--font-display)] text-2xl tracking-wide text-primary">
-          All moments
+          Legendary at-bats
         </p>
         <Button variant="ghost" size="sm" onClick={onBack}>
           Back
@@ -635,7 +765,7 @@ function SituationScreen({
   atBat,
   dateKey,
   count,
-  isDaily,
+  playMode,
   onStart,
   onBack,
   onHowTo,
@@ -643,11 +773,18 @@ function SituationScreen({
   atBat: LegendaryAtBat;
   dateKey: string;
   count: CountState;
-  isDaily: boolean;
+  playMode: PlayMode;
   onStart: () => void;
   onBack: () => void;
   onHowTo: () => void;
 }) {
+  const modeBadge =
+    playMode === "daily"
+      ? dateKey
+      : playMode === "inning"
+        ? "Bot 9"
+        : "Practice";
+
   return (
     <section className="anim-rise flex min-h-[85dvh] flex-col justify-between gap-8 py-4">
       <div className="space-y-5">
@@ -665,7 +802,7 @@ function SituationScreen({
               How to play
             </Button>
             <Badge variant="outline" className="rounded-md border-flood/40 text-flood">
-              {isDaily ? dateKey : "Practice"}
+              {modeBadge}
             </Badge>
           </div>
         </div>
@@ -711,7 +848,7 @@ function PitchScreen({
   atBat,
   pitch,
   pitchNumber,
-  recycled,
+  extended,
   phase,
   count,
   lastGrade,
@@ -725,7 +862,7 @@ function PitchScreen({
   atBat: LegendaryAtBat;
   pitch: LegendaryAtBat["pitches"][number];
   pitchNumber: number;
-  recycled: boolean;
+  extended: boolean;
   phase: GamePhase;
   count: CountState;
   lastGrade: PitchResultGrade | null;
@@ -758,7 +895,7 @@ function PitchScreen({
           </p>
           <p className="text-xs text-muted-foreground">
             Pitch {pitchNumber}
-            {recycled ? " · recycled" : ""}
+            {extended ? " · arsenal" : ""}
           </p>
         </div>
         <ScoreBug
@@ -864,8 +1001,13 @@ function ResultScreen({
   session,
   copied,
   pending,
+  isInning,
+  inningOver,
+  walkedOff,
+  inningLine,
   onShare,
   onReplay,
+  onContinueInning,
   onCatalog,
   onHome,
 }: {
@@ -873,17 +1015,33 @@ function ResultScreen({
   session: AtBatSessionResult;
   copied: boolean;
   pending: boolean;
+  isInning: boolean;
+  inningOver: boolean;
+  walkedOff: boolean;
+  inningLine: string | null;
   onShare: () => void;
   onReplay: () => void;
+  onContinueInning?: () => void;
   onCatalog: () => void;
   onHome: () => void;
 }) {
-  const starsBlurb =
-    session.stars >= 3
+  const starsBlurb = isInning
+    ? inningOver
+      ? (inningLine ?? "Inning over")
+      : "Keep the line moving"
+    : session.stars >= 3
       ? "Won the game"
       : session.stars === 2
         ? "Do your job"
         : "Failed the moment";
+
+  const inningHeadline = !isInning
+    ? session.endingTitle
+    : walkedOff
+      ? "Walk-off!"
+      : inningOver
+        ? "Ballgame"
+        : session.endingTitle;
 
   return (
     <section className="anim-rise flex min-h-[85dvh] flex-col gap-6 py-4">
@@ -891,7 +1049,7 @@ function ResultScreen({
         away={session.board.away}
         home={session.board.home}
         inning={atBat.inning}
-        outs={session.board.outs}
+        outs={Math.min(3, session.board.outs)}
         count={session.board.count}
         bases={session.board.bases}
       />
@@ -899,14 +1057,18 @@ function ResultScreen({
       <div className="space-y-2 text-center">
         <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
           {atBat.codename}
+          {isInning && atBat.gameLabel ? ` · ${atBat.gameLabel}` : ""}
         </p>
         <h2 className="font-[family-name:var(--font-display)] text-5xl tracking-wide text-chalk">
-          {session.endingTitle}
+          {inningHeadline}
         </h2>
         <p className="text-sm text-flood">
           {playResultLabel(session.finalPlay)}
           {session.runsScored > 0 ? ` · ${session.runsScored} R` : ""}
         </p>
+        {isInning && inningLine && (
+          <p className="text-xs text-muted-foreground">{inningLine}</p>
+        )}
       </div>
 
       <div className="rounded-md bg-secondary/50 p-5 text-center">
@@ -919,20 +1081,22 @@ function ResultScreen({
         </p>
       </div>
 
-      <div className="space-y-2 rounded-md border border-border/80 bg-background/40 p-4">
-        <p className="text-xs uppercase tracking-[0.22em] text-flood">
-          What actually happened
-        </p>
-        <p className="font-medium text-foreground">
-          {outcomeLabel(atBat.historical.outcome)}
-          {atBat.historical.batterSucceeded
-            ? " · Batter came through"
-            : " · Batter failed"}
-        </p>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {atBat.historical.summary}
-        </p>
-      </div>
+      {!isInning && (
+        <div className="space-y-2 rounded-md border border-border/80 bg-background/40 p-4">
+          <p className="text-xs uppercase tracking-[0.22em] text-flood">
+            What actually happened
+          </p>
+          <p className="font-medium text-foreground">
+            {outcomeLabel(atBat.historical.outcome)}
+            {atBat.historical.batterSucceeded
+              ? " · Batter came through"
+              : " · Batter failed"}
+          </p>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {atBat.historical.summary}
+          </p>
+        </div>
+      )}
 
       <div className="space-y-2">
         <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
@@ -961,13 +1125,26 @@ function ResultScreen({
       </div>
 
       <div className="mt-auto grid gap-2">
-        <Button size="lg" className="h-12" onClick={onShare}>
-          {copied ? "Copied!" : "Copy result"}
-        </Button>
-        <div className="grid gap-2 sm:grid-cols-3">
-          <Button size="lg" variant="secondary" className="h-11" onClick={onReplay}>
-            Replay
+        {isInning && onContinueInning ? (
+          <Button size="lg" className="h-12" onClick={onContinueInning}>
+            {inningOver ? "New Bottom 9" : "Next batter"}
           </Button>
+        ) : (
+          <Button size="lg" className="h-12" onClick={onShare}>
+            {copied ? "Copied!" : "Copy result"}
+          </Button>
+        )}
+        <div className="grid gap-2 sm:grid-cols-3">
+          {!isInning && (
+            <Button size="lg" variant="secondary" className="h-11" onClick={onReplay}>
+              Replay
+            </Button>
+          )}
+          {isInning && (
+            <Button size="lg" variant="secondary" className="h-11" onClick={onShare}>
+              {copied ? "Copied!" : "Copy"}
+            </Button>
+          )}
           <Button size="lg" variant="secondary" className="h-11" onClick={onCatalog}>
             All moments
           </Button>

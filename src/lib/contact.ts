@@ -210,7 +210,7 @@ export function estimateContact(opts: {
   // ---- Above midpoint → ground ball only ----
   if (aboveMid) {
     // Through the hole on solid contact
-    if (quality >= 0.82) {
+    if (quality >= 0.8) {
       return pack("single", "ground", vertical, quality, launchDeg, exitVeloMph);
     }
     if (bases.first && outs < 2) {
@@ -366,7 +366,7 @@ export const CONTACT_OUTCOME_GUIDE = {
   foul: "quality < 0.40",
   above_mid: {
     band: "aim above ball midpoint → grounder only",
-    single: "quality ≥ 0.82 (through the hole)",
+    single: "quality ≥ 0.8 (through the hole)",
     double_play: "else if runner on 1st and outs < 2",
     ground_out: "else",
   },
