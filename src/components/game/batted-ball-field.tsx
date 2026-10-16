@@ -17,18 +17,21 @@ type Props = {
   progress: number;
   contact: ZoneCoord;
   bats: BatterHand;
+  /** Fill a parent frame (used inside PitchCanvas morph) */
+  fill?: boolean;
   className?: string;
 };
 
 /**
- * Faux-3D side/outfield camera for the batted ball.
- * Spray (pull vs oppo) comes from contact + handedness.
+ * Overhead diamond — home at bottom, OF at top — sized to share the
+ * same phone frame as the strike zone.
  */
 export function BattedBallField({
   play,
   progress,
   contact,
   bats,
+  fill = false,
   className,
 }: Props) {
   const track = fieldTrackSamples(play, progress, contact, bats, 28);
@@ -44,89 +47,152 @@ export function BattedBallField({
           .join(" ")
       : "";
 
-  const ballR = Math.max(1.2, 3.4 - ball.dist * 2.2);
+  const ballR = Math.max(1.1, 3.6 - ball.dist * 2.4 + ball.height * 0.8);
   const isHit =
     play === "home_run" || play === "double" || play === "single";
 
   return (
     <div
       className={cn(
-        "relative mx-auto w-full max-w-[300px] overflow-hidden rounded-md border border-chalk/20",
+        fill
+          ? "absolute inset-0 overflow-hidden"
+          : "relative mx-auto aspect-[3/4] w-full max-w-[300px] overflow-hidden rounded-sm border border-chalk/20",
         className,
       )}
+      style={{
+        background:
+          "linear-gradient(180deg, oklch(0.26 0.035 250 / 0.95) 0%, oklch(0.34 0.06 145 / 0.75) 38%, oklch(0.4 0.09 145 / 0.92) 100%)",
+      }}
     >
-      <div
-        className="relative aspect-[5/3] w-full"
-        style={{
-          background:
-            "linear-gradient(180deg, oklch(0.28 0.04 250 / 0.9) 0%, oklch(0.35 0.06 145 / 0.55) 42%, oklch(0.42 0.09 145 / 0.85) 100%)",
-          perspective: "520px",
-        }}
+      <svg
+        viewBox="0 0 100 100"
+        preserveAspectRatio="xMidYMid slice"
+        className="absolute inset-0 h-full w-full"
+        aria-hidden
       >
-        <div
-          className="pointer-events-none absolute inset-x-[-10%] bottom-[-8%] h-[58%] origin-bottom rounded-[100%]"
-          style={{
-            background:
-              "radial-gradient(ellipse at 50% 20%, oklch(0.55 0.12 145 / 0.55), oklch(0.32 0.07 145 / 0.9))",
-            transform: "rotateX(58deg)",
-            borderTop: "1px solid oklch(0.75 0.04 95 / 0.25)",
-          }}
+        {/* Outfield grass */}
+        <defs>
+          <radialGradient id="infieldDirt" cx="50%" cy="78%" r="42%">
+            <stop offset="0%" stopColor="oklch(0.62 0.08 75 / 0.55)" />
+            <stop offset="55%" stopColor="oklch(0.48 0.07 75 / 0.35)" />
+            <stop offset="100%" stopColor="oklch(0.4 0.09 145 / 0)" />
+          </radialGradient>
+        </defs>
+
+        {/* Foul lines from home */}
+        <line
+          x1="50"
+          y1="90"
+          x2="8"
+          y2="12"
+          stroke="oklch(0.93 0.02 95 / 0.35)"
+          strokeWidth="0.45"
+        />
+        <line
+          x1="50"
+          y1="90"
+          x2="92"
+          y2="12"
+          stroke="oklch(0.93 0.02 95 / 0.35)"
+          strokeWidth="0.45"
         />
 
-        <div className="pointer-events-none absolute inset-x-[8%] top-[18%] h-[10%] rounded-sm bg-chalk/10" />
+        {/* Outfield wall arc */}
+        <path
+          d="M 6 18 Q 50 2 94 18"
+          fill="none"
+          stroke="oklch(0.75 0.04 95 / 0.28)"
+          strokeWidth="0.6"
+        />
 
-        <p className="absolute left-2 top-2 text-[10px] uppercase tracking-[0.16em] text-chalk/60">
-          LF
-        </p>
-        <p className="absolute right-2 top-2 text-[10px] uppercase tracking-[0.16em] text-chalk/60">
-          RF
-        </p>
+        {/* Infield dirt */}
+        <ellipse cx="50" cy="72" rx="28" ry="22" fill="url(#infieldDirt)" />
 
-        <svg
-          viewBox="0 0 100 100"
-          className="absolute inset-0 h-full w-full"
-          aria-hidden
-        >
-          <polygon
-            points="6,82 10,78 14,82 10,86"
-            fill="oklch(0.92 0.02 95 / 0.85)"
-          />
-          {pathD && (
-            <path
-              d={pathD}
-              fill="none"
-              stroke="oklch(0.9 0.04 95 / 0.55)"
-              strokeWidth="0.7"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          )}
-          <ellipse
-            cx={ballSvg.x}
-            cy={82}
-            rx={Math.max(1.2, ballR * 1.1)}
-            ry={0.7}
-            fill="oklch(0.15 0.02 145 / 0.35)"
-            opacity={Math.max(0.1, 0.45 - ball.height * 0.35)}
-          />
-          <circle
-            cx={ballSvg.x}
-            cy={ballSvg.y}
-            r={ballR}
-            fill={isHit ? "oklch(0.82 0.14 75)" : "oklch(0.92 0.02 95)"}
-            opacity={Math.max(0.15, 1 - progress * 0.15)}
-            style={{
-              filter: isHit
-                ? "drop-shadow(0 0 4px oklch(0.82 0.14 75 / 0.7))"
-                : "drop-shadow(0 0 3px oklch(0.9 0.05 95 / 0.45))",
-            }}
-          />
-        </svg>
+        {/* Bases */}
+        <rect
+          x="48.2"
+          y="54"
+          width="3.6"
+          height="3.6"
+          transform="rotate(45 50 55.8)"
+          fill="oklch(0.93 0.02 95 / 0.7)"
+        />
+        <rect
+          x="32"
+          y="66"
+          width="3.2"
+          height="3.2"
+          transform="rotate(45 33.6 67.6)"
+          fill="oklch(0.93 0.02 95 / 0.55)"
+        />
+        <rect
+          x="64.8"
+          y="66"
+          width="3.2"
+          height="3.2"
+          transform="rotate(45 66.4 67.6)"
+          fill="oklch(0.93 0.02 95 / 0.55)"
+        />
 
-        <p className="absolute bottom-2 left-0 right-0 text-center text-[10px] uppercase tracking-[0.18em] text-chalk/70">
-          {playResultLabel(play)} · {exitLabel(play)} · {sprayLabel(contact, bats)}
-        </p>
-      </div>
+        {/* Home plate */}
+        <polygon
+          points="50,92 46.5,88.5 46.5,86 53.5,86 53.5,88.5"
+          fill="oklch(0.94 0.02 95 / 0.9)"
+        />
+
+        {/* Pitcher's mound */}
+        <ellipse
+          cx="50"
+          cy="68"
+          rx="3.2"
+          ry="2.2"
+          fill="oklch(0.55 0.07 75 / 0.45)"
+        />
+
+        {pathD && (
+          <path
+            d={pathD}
+            fill="none"
+            stroke="oklch(0.9 0.04 95 / 0.55)"
+            strokeWidth="0.65"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
+
+        {/* Ground shadow */}
+        <ellipse
+          cx={ballSvg.x}
+          cy={Math.min(92, ballSvg.y + 2 + ball.height * 6)}
+          rx={Math.max(1.1, ballR * 1.15)}
+          ry={0.65}
+          fill="oklch(0.12 0.02 145 / 0.4)"
+          opacity={Math.max(0.12, 0.5 - ball.height * 0.4)}
+        />
+
+        <circle
+          cx={ballSvg.x}
+          cy={ballSvg.y}
+          r={ballR}
+          fill={isHit ? "oklch(0.82 0.14 75)" : "oklch(0.92 0.02 95)"}
+          opacity={Math.max(0.2, 1 - progress * 0.12)}
+          style={{
+            filter: isHit
+              ? "drop-shadow(0 0 4px oklch(0.82 0.14 75 / 0.7))"
+              : "drop-shadow(0 0 3px oklch(0.9 0.05 95 / 0.45))",
+          }}
+        />
+      </svg>
+
+      <p className="pointer-events-none absolute left-2 top-2 text-[10px] uppercase tracking-[0.16em] text-chalk/55">
+        LF
+      </p>
+      <p className="pointer-events-none absolute right-2 top-2 text-[10px] uppercase tracking-[0.16em] text-chalk/55">
+        RF
+      </p>
+      <p className="pointer-events-none absolute bottom-2 left-0 right-0 text-center text-[10px] uppercase tracking-[0.16em] text-chalk/70">
+        {playResultLabel(play)} · {exitLabel(play)} · {sprayLabel(contact, bats)}
+      </p>
     </div>
   );
 }

@@ -106,11 +106,15 @@ export function fieldTrackSamples(
   );
 }
 
-/** Map field sample → SVG viewBox coords (0–100). */
+/**
+ * Overhead / catcher-pullback camera (same frame as the strike zone):
+ * home plate at bottom-center, outfield toward the top, spray = LF/RF.
+ */
 export function fieldToSvg(sample: FieldSample): { x: number; y: number } {
-  // Home plate leftish, outfield right; spray shifts path LF/RF
-  const x = 8 + sample.dist * 84 + sample.spray * sample.dist * 10;
-  const y = 78 - sample.height * 58;
+  const spread = 38 * sample.dist; // how far left/right at this depth
+  const x = 50 + sample.spray * spread;
+  // Carry toward the outfield (up the frame); height lifts the ball slightly
+  const y = 88 - sample.dist * 74 - sample.height * 10;
   return { x, y };
 }
 

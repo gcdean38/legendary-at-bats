@@ -3,11 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  BattedBallField,
-  shouldShowFieldFlight,
-} from "@/components/game/batted-ball-field";
-import { StrikeZone } from "@/components/game/strike-zone";
+import { PitchCanvas } from "@/components/game/pitch-canvas";
 import { ScoreBug } from "@/components/game/score-bug";
 import { LEGENDARY_AT_BATS } from "@/data/legendary-at-bats";
 import { getDailyAtBat, formatShareSummary, utcDateKey } from "@/lib/daily";
@@ -763,8 +759,8 @@ function PitchScreen({
         </div>
       </header>
 
-      <div className="relative my-1 space-y-3">
-        <StrikeZone
+      <div className="relative my-1">
+        <PitchCanvas
           interactive={live}
           live={live}
           target={pitch.location}
@@ -775,41 +771,26 @@ function PitchScreen({
           ballProgress={live ? Math.max(ballProgress, 0.02) : ballProgress}
           exitProgress={phase === "pitch_result" ? exitProgress : 0}
           play={lastGrade?.play ?? null}
-          contactPoint={pitch.location}
-          suppressExitOverlay={
-            phase === "pitch_result" &&
-            shouldShowFieldFlight(lastGrade?.play)
-          }
           onAim={onAim}
           startedAt={flightStart}
-        />
-        {phase === "pitch_result" &&
-          lastGrade &&
-          shouldShowFieldFlight(lastGrade.play) && (
-            <BattedBallField
-              play={lastGrade.play}
-              progress={Math.max(exitProgress, 0.08)}
-              contact={pitch.location}
-              bats={atBat.batter.bats}
-              className="anim-rise"
-            />
-          )}
-        {(windup || !live) &&
-          continueInSec != null &&
-          continueInSec >= 1 && (
-            <div
-              className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              <span
-                key={`${phase}-${continueInSec}`}
-                className="anim-countdown-pop font-[family-name:var(--font-display)] text-[7.5rem] leading-none tracking-wide text-primary drop-shadow-[0_0_28px_oklch(0.84_0.15_78/0.55)] sm:text-[9rem]"
+        >
+          {(windup || !live) &&
+            continueInSec != null &&
+            continueInSec >= 1 && (
+              <div
+                className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center"
+                aria-live="polite"
+                aria-atomic="true"
               >
-                {continueInSec}
-              </span>
-            </div>
-          )}
+                <span
+                  key={`${phase}-${continueInSec}`}
+                  className="anim-countdown-pop font-[family-name:var(--font-display)] text-[7.5rem] leading-none tracking-wide text-primary drop-shadow-[0_0_28px_oklch(0.84_0.15_78/0.55)] sm:text-[9rem]"
+                >
+                  {continueInSec}
+                </span>
+              </div>
+            )}
+        </PitchCanvas>
       </div>
 
       <div className="mt-4 flex-1 space-y-4">

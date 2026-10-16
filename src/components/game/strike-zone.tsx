@@ -27,6 +27,9 @@ type Props = {
   contactPoint?: ZoneCoord;
   /** Hide plate exit overlay when a separate field view is showing */
   suppressExitOverlay?: boolean;
+  /** Fill a parent frame (PitchCanvas) instead of owning aspect ratio */
+  fill?: boolean;
+  hideCaption?: boolean;
   onAim?: (coord: ZoneCoord, timingMs: number) => void;
   startedAt?: number;
   className?: string;
@@ -45,6 +48,8 @@ export function StrikeZone({
   play = null,
   contactPoint,
   suppressExitOverlay = false,
+  fill = false,
+  hideCaption = false,
   onAim,
   startedAt = 0,
   className,
@@ -136,7 +141,9 @@ export function StrikeZone({
   return (
     <div
       className={cn(
-        "relative mx-auto aspect-[3/4] w-full max-w-[300px] select-none",
+        fill
+          ? "absolute inset-0 select-none"
+          : "relative mx-auto aspect-[3/4] w-full max-w-[300px] select-none",
         className,
       )}
     >
@@ -313,11 +320,13 @@ export function StrikeZone({
         )}
       </div>
 
-      <p className="absolute -bottom-7 left-0 right-0 text-center text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-        {interactive
-          ? "Click the plate — zone or chase — or Take"
-          : "Plate · strike zone inset"}
-      </p>
+      {!hideCaption && (
+        <p className="absolute -bottom-7 left-0 right-0 text-center text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+          {interactive
+            ? "Click the plate — zone or chase — or Take"
+            : "Plate · strike zone inset"}
+        </p>
+      )}
     </div>
   );
 }
