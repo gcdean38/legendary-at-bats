@@ -46,7 +46,9 @@ export function HowToPlayOverlay({ onDismiss }: Props) {
             <span>
               Your click is the{" "}
               <strong className="text-chalk">barrel sweet spot</strong>. Aim
-              where the ball will be — handedness shapes the barrel reach.
+              where the ball will be — breaking balls spin{" "}
+              <strong className="text-chalk">CW/CCW by pitcher hand</strong>,
+              changeups tumble over themselves, heaters stay still.
             </span>
           </li>
           <li className="flex gap-3">

@@ -11,6 +11,7 @@ type Props = {
   live?: boolean;
   target: ZoneCoord;
   pitchType: PitchType;
+  throws?: "L" | "R";
   bats: BatterHand;
   aim?: ZoneCoord;
   showTarget?: boolean;
@@ -35,6 +36,7 @@ export function PitchCanvas({
   live = false,
   target,
   pitchType,
+  throws = "R",
   bats,
   aim,
   showTarget = false,
@@ -62,6 +64,7 @@ export function PitchCanvas({
         live={live}
         target={target}
         pitchType={pitchType}
+        throws={throws}
         bats={bats}
         aim={aim}
         showTarget={showTarget}
