@@ -251,7 +251,7 @@ export function exitVisualAt(
       break;
     case "ground_single":
       lateral = 0.55 * p + 0.12 * p * p;
-      away = 0.22 * p; // into the infield, not down the frame
+      away = -0.1 * p; // slight drop toward the dirt
       height = 0.04 * Math.abs(Math.sin(p * Math.PI * 2));
       depth = p * 0.85;
       break;
@@ -269,7 +269,7 @@ export function exitVisualAt(
       break;
     case "ground_out":
       lateral = 0.32 * p + 0.08 * p * p;
-      away = 0.18 * p; // weak roller into the dirt ahead
+      away = -0.12 * p; // weak roller dropping toward the dirt
       height = 0.03 * (1 - p);
       depth = p * 0.7;
       break;

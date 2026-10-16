@@ -69,6 +69,8 @@ export function DailyGame() {
   const pendingEndRef = useRef<AtBatEndReason | null>(null);
   const continueTimerRef = useRef<number | null>(null);
   const postResultDelayRef = useRef<number | null>(null);
+  /** Auto-show How to Play only on the first at-bat of this session. */
+  const howToSeenRef = useRef(false);
 
   const currentPitch =
     atBat && atBat.pitches.length > 0
@@ -206,7 +208,10 @@ export function DailyGame() {
     setIsDaily(daily);
     setDateKey(daily ? utcDateKey(new Date()) : `practice · ${next.id}`);
     setPhase("situation");
-    setHowToOpen(true);
+    if (!howToSeenRef.current) {
+      howToSeenRef.current = true;
+      setHowToOpen(true);
+    }
   }
 
   function beginPitch() {
