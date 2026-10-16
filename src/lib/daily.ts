@@ -49,6 +49,28 @@ const DAILY_OVERRIDES: Record<string, string> = {
 };
 
 /**
+ * First Eastern day shown in “Previous days”. Days on/after this and
+ * before today accumulate in history as new dailies appear.
+ */
+export const DAILY_HISTORY_START = "2026-10-14";
+
+/** Parse YYYY-MM-DD as a Date anchored near US Eastern midday. */
+export function dateFromEasternKey(dateKey: string): Date {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  if (!y || !m || !d) {
+    throw new Error(`Invalid Eastern date key: ${dateKey}`);
+  }
+  return new Date(Date.UTC(y, m - 1, d, 17, 0, 0));
+}
+
+/** Shift an Eastern YYYY-MM-DD by whole calendar days. */
+export function shiftEasternDateKey(dateKey: string, deltaDays: number): string {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  const dt = new Date(Date.UTC(y!, m! - 1, d! + deltaDays, 17, 0, 0));
+  return easternDateKey(dt);
+}
+
+/**
  * Deterministic daily pick so every player gets the same at-bat
  * on the same US Eastern calendar day.
  */
@@ -71,6 +93,29 @@ export function getDailyAtBat(date: Date): {
   }
   const index = hashString(`legendary-at-bats:${dateKey}`) % list.length;
   return { atBat: list[index]!, dateKey, index };
+}
+
+export type DailyHistoryEntry = {
+  dateKey: string;
+  atBat: LegendaryAtBat;
+};
+
+/**
+ * Past dailies from {@link DAILY_HISTORY_START} through yesterday (ET),
+ * newest first — the stash players can replay without browsing all 64.
+ */
+export function listDailyHistory(asOf: Date = new Date()): DailyHistoryEntry[] {
+  const today = easternDateKey(asOf);
+  if (DAILY_HISTORY_START >= today) return [];
+
+  const out: DailyHistoryEntry[] = [];
+  let key = DAILY_HISTORY_START;
+  while (key < today) {
+    const pick = getDailyAtBat(dateFromEasternKey(key));
+    out.push({ dateKey: pick.dateKey, atBat: pick.atBat });
+    key = shiftEasternDateKey(key, 1);
+  }
+  return out.reverse();
 }
 
 export function formatShareSummary(opts: {

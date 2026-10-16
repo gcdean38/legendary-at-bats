@@ -9,8 +9,10 @@ import { ScoreBug } from "@/components/game/score-bug";
 import { LEGENDARY_AT_BATS } from "@/data/legendary-at-bats";
 import {
   getDailyAtBat,
+  listDailyHistory,
   formatShareSummary,
   easternDateKey,
+  type DailyHistoryEntry,
 } from "@/lib/daily";
 import { exitLabel, flightMsForPitch } from "@/lib/flight";
 import { playResultLabel } from "@/lib/contact";
@@ -307,7 +309,7 @@ export function DailyGame() {
   function selectAtBat(
     next: LegendaryAtBat,
     mode: PlayMode,
-    opts?: { skipSituation?: boolean },
+    opts?: { skipSituation?: boolean; dateKey?: string },
   ) {
     cancelFlight();
     resetBattleState();
@@ -317,7 +319,10 @@ export function DailyGame() {
     }
     setAtBat(next);
     setPlayMode(mode);
-    setDateKey(mode === "daily" ? easternDateKey(new Date()) : next.codename);
+    setDateKey(
+      opts?.dateKey ??
+        (mode === "daily" ? easternDateKey(new Date()) : next.codename),
+    );
     lockPitchForCursor(next, 0);
     setPhase(opts?.skipSituation ? "pitch_windup" : "situation");
     if (!howToSeenRef.current) {
@@ -668,7 +673,7 @@ export function DailyGame() {
     setPhase("intro");
   }
 
-  function openCatalog() {
+  function openHistory() {
     resetBattleState();
     clearInningState();
     setPhase("catalog");
@@ -730,22 +735,24 @@ export function DailyGame() {
           <IntroScreen
             dateKey={dateKey}
             daily={atBat}
-            catalogSize={LEGENDARY_AT_BATS.length}
+            history={listDailyHistory(new Date())}
             onPlayDaily={() => selectAtBat(atBat, "daily")}
-            onOpenCatalog={openCatalog}
+            onOpenHistory={openHistory}
+            onPlayHistory={(entry) =>
+              selectAtBat(entry.atBat, "practice", {
+                dateKey: entry.dateKey,
+              })
+            }
             onInning={(difficulty) => startInning(difficulty)}
           />
         )}
         {phase === "catalog" && (
-          <CatalogScreen
-            dailyId={getDailyAtBat(new Date()).atBat.id}
-            onPick={(ab) =>
-              selectAtBat(
-                ab,
-                ab.id === getDailyAtBat(new Date()).atBat.id
-                  ? "daily"
-                  : "practice",
-              )
+          <HistoryScreen
+            entries={listDailyHistory(new Date())}
+            onPick={(entry) =>
+              selectAtBat(entry.atBat, "practice", {
+                dateKey: entry.dateKey,
+              })
             }
             onBack={() => {
               clearInningState();
@@ -836,7 +843,7 @@ export function DailyGame() {
                 : undefined
             }
             onNewBot9={startInning}
-            onCatalog={openCatalog}
+            onCatalog={openHistory}
             onHome={goHome}
           />
         )}
@@ -891,18 +898,22 @@ function EmptyState({ onRetry }: { onRetry: () => void }) {
 function IntroScreen({
   dateKey,
   daily,
+  history,
   onPlayDaily,
-  onOpenCatalog,
+  onOpenHistory,
+  onPlayHistory,
   onInning,
-  catalogSize,
 }: {
   dateKey: string;
   daily: LegendaryAtBat;
+  history: DailyHistoryEntry[];
   onPlayDaily: () => void;
-  onOpenCatalog: () => void;
+  onOpenHistory: () => void;
+  onPlayHistory: (entry: DailyHistoryEntry) => void;
   onInning: (difficulty: Bot9Difficulty) => void;
-  catalogSize: number;
 }) {
+  const recent = history.slice(0, 3);
+
   return (
     <section className="flex min-h-[85dvh] flex-col justify-between gap-10 py-4">
       <div className="anim-rise space-y-6 pt-8 text-center sm:pt-14">
@@ -915,7 +926,7 @@ function IntroScreen({
           <span className="text-primary">At Bats</span>
         </h1>
         <p className="mx-auto max-w-sm text-sm text-muted-foreground sm:text-base">
-          Step into legendary moments. Swing or take — work the count.
+          One new moment each day. Swing or take — work the count.
         </p>
         <div className="mx-auto w-full max-w-sm space-y-2 text-left">
           <div className="text-center">
@@ -926,7 +937,8 @@ function IntroScreen({
               {daily.codename}
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {daily.gameLabel} · {daily.inning} · {daily.runners}
+              {daily.batter.name ? `${daily.batter.name} · ` : ""}
+              {daily.gameLabel} · {daily.inning}
             </p>
           </div>
           <ScoreBug
@@ -958,73 +970,108 @@ function IntroScreen({
         >
           Today’s at-bat
         </Button>
-        <Button
-          size="lg"
-          variant="secondary"
-          className="h-12 w-full text-base"
-          onClick={onOpenCatalog}
-        >
-          Legendary at-bats
-          <span className="ml-2 text-xs font-normal text-muted-foreground">
-            {catalogSize}
-          </span>
-        </Button>
         <Bot9DifficultyPicker
           title="Bottom of the 9th Mode:"
           onPick={onInning}
         />
+        {recent.length > 0 && (
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center justify-between gap-2 px-0.5">
+              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                Previous days
+              </p>
+              {history.length > recent.length && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-flood"
+                  onClick={onOpenHistory}
+                >
+                  See all ({history.length})
+                </Button>
+              )}
+            </div>
+            <ul className="space-y-1.5">
+              {recent.map((entry) => (
+                <li key={entry.dateKey}>
+                  <button
+                    type="button"
+                    onClick={() => onPlayHistory(entry)}
+                    className="w-full rounded-md border border-border/70 bg-secondary/40 px-3 py-2.5 text-left transition hover:border-flood/40 hover:bg-secondary/70"
+                  >
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-flood">
+                      {entry.dateKey}
+                    </p>
+                    <p className="mt-0.5 text-sm font-medium text-foreground">
+                      {entry.atBat.codename}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {entry.atBat.year} · {entry.atBat.series}
+                      {entry.atBat.batter.name
+                        ? ` · ${entry.atBat.batter.name}`
+                        : ""}
+                    </p>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </section>
   );
 }
 
-function CatalogScreen({
-  dailyId,
+function HistoryScreen({
+  entries,
   onPick,
   onBack,
 }: {
-  dailyId: string;
-  onPick: (ab: LegendaryAtBat) => void;
+  entries: DailyHistoryEntry[];
+  onPick: (entry: DailyHistoryEntry) => void;
   onBack: () => void;
 }) {
   return (
     <section className="anim-rise flex min-h-[85dvh] flex-col gap-4 py-2">
       <div className="flex items-center justify-between gap-2">
         <p className="font-[family-name:var(--font-display)] text-2xl tracking-wide text-primary">
-          Legendary at-bats
+          Previous days
         </p>
         <Button variant="ghost" size="sm" onClick={onBack}>
           Back
         </Button>
       </div>
-      <ul className="flex flex-1 flex-col gap-2 overflow-y-auto pb-4">
-        {[...LEGENDARY_AT_BATS]
-          .sort((a, b) => b.year - a.year || b.id.localeCompare(a.id))
-          .map((ab) => (
-          <li key={ab.id}>
-            <button
-              type="button"
-              onClick={() => onPick(ab)}
-              className="w-full rounded-md border border-border/70 bg-secondary/40 px-3 py-3 text-left transition hover:border-flood/40 hover:bg-secondary/70"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="font-medium text-foreground">{ab.codename}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {ab.year} · {ab.series} · {ab.inning}
-                    {ab.batter.name ? ` · ${ab.batter.name}` : ""}
-                  </p>
-                </div>
-                {ab.id === dailyId && (
-                  <Badge variant="outline" className="shrink-0 rounded-md text-[10px]">
-                    Today
-                  </Badge>
-                )}
-              </div>
-            </button>
-          </li>
-        ))}
-      </ul>
+      <p className="text-sm text-muted-foreground">
+        Each day’s challenge sticks around here after it rotates out.
+      </p>
+      {entries.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          No previous days yet — check back tomorrow.
+        </p>
+      ) : (
+        <ul className="flex flex-1 flex-col gap-2 overflow-y-auto pb-4">
+          {entries.map((entry) => (
+            <li key={entry.dateKey}>
+              <button
+                type="button"
+                onClick={() => onPick(entry)}
+                className="w-full rounded-md border border-border/70 bg-secondary/40 px-3 py-3 text-left transition hover:border-flood/40 hover:bg-secondary/70"
+              >
+                <p className="text-[10px] uppercase tracking-[0.18em] text-flood">
+                  {entry.dateKey}
+                </p>
+                <p className="mt-1 font-medium text-foreground">
+                  {entry.atBat.codename}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {entry.atBat.year} · {entry.atBat.series} · {entry.atBat.gameLabel}
+                  {entry.atBat.batter.name ? ` · ${entry.atBat.batter.name}` : ""}
+                </p>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
@@ -1096,7 +1143,9 @@ function SituationScreen({
         ? bot9Difficulty
           ? `Bot 9 · ${BOT9_DIFFICULTY_LABEL[bot9Difficulty]}`
           : "Bot 9"
-        : "Practice";
+        : dateKey.startsWith("20")
+          ? dateKey
+          : "Archive";
 
   return (
     <section className="anim-rise flex min-h-[85dvh] flex-col justify-between gap-8 py-4">
@@ -1604,7 +1653,7 @@ function ResultScreen({
             </Button>
           )}
           <Button size="lg" variant="secondary" className="h-11" onClick={onCatalog}>
-            All moments
+            Previous days
           </Button>
           <Button size="lg" variant="ghost" className="h-11" onClick={onHome}>
             Home
