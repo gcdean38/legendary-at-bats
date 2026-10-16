@@ -15,7 +15,12 @@ import {
   applyPitchEvent,
   pitchAtCursor,
 } from "@/lib/count";
-import { finalizeSession, gradePitch, pitchTypeLabel } from "@/lib/scoring";
+import {
+  finalizeSession,
+  gradePitch,
+  outcomeLabel,
+  pitchTypeLabel,
+} from "@/lib/scoring";
 import type {
   AtBatEndReason,
   AtBatSessionResult,
@@ -911,6 +916,21 @@ function ResultScreen({
         </p>
         <p className="mt-2 text-sm font-medium text-foreground">
           {pending ? "Finalizing…" : starsBlurb}
+        </p>
+      </div>
+
+      <div className="space-y-2 rounded-md border border-border/80 bg-background/40 p-4">
+        <p className="text-xs uppercase tracking-[0.22em] text-flood">
+          What actually happened
+        </p>
+        <p className="font-medium text-foreground">
+          {outcomeLabel(atBat.historical.outcome)}
+          {atBat.historical.batterSucceeded
+            ? " · Batter came through"
+            : " · Batter failed"}
+        </p>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {atBat.historical.summary}
         </p>
       </div>
 
