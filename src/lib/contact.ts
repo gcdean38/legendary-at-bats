@@ -159,7 +159,7 @@ export function estimateContact(opts: {
     tFactor >= 0.35;
   /** True barrel — in-ball + timing + center contact locked enough for a HR. */
   const flushHr =
-    inBallMid && tFactor >= 0.62 && proximity >= 0.72;
+    inBallMid && tFactor >= 0.62 && proximity >= 0.85;
 
   if (inBallMid) quality = Math.max(quality, flushHr ? 0.97 : 0.9);
 
