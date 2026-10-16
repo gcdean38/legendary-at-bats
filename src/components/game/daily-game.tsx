@@ -7,7 +7,12 @@ import { HowToPlayOverlay } from "@/components/game/how-to-play";
 import { PitchCanvas } from "@/components/game/pitch-canvas";
 import { ScoreBug } from "@/components/game/score-bug";
 import { LEGENDARY_AT_BATS } from "@/data/legendary-at-bats";
-import { getDailyAtBat, formatShareSummary, easternDateKey } from "@/lib/daily";
+import {
+  getDailyAtBat,
+  formatShareSummary,
+  easternDateKey,
+  SHARE_GAME_URL,
+} from "@/lib/daily";
 import { exitLabel, flightMsForPitch } from "@/lib/flight";
 import { playResultLabel } from "@/lib/contact";
 import {
@@ -119,7 +124,8 @@ export function DailyGame() {
   const [aim, setAim] = useState<ZoneCoord | undefined>();
   const [ballProgress, setBallProgress] = useState(0);
   const [exitProgress, setExitProgress] = useState(0);
-  const [copied, setCopied] = useState(false);
+  /** Brief button flash after share/copy (“Shared!” / “Copied!”). */
+  const [shareFlash, setShareFlash] = useState<string | null>(null);
   const [continueInSec, setContinueInSec] = useState<number | null>(null);
   const [howToOpen, setHowToOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -282,7 +288,7 @@ export function DailyGame() {
     setAim(undefined);
     setBallProgress(0);
     setExitProgress(0);
-    setCopied(false);
+    setShareFlash(null);
     livePitchRef.current = null;
     setLivePitch(null);
   }
@@ -541,6 +547,11 @@ export function DailyGame() {
     beginPitchWindup();
   }
 
+  function flashShare(label: string) {
+    setShareFlash(label);
+    window.setTimeout(() => setShareFlash(null), 2000);
+  }
+
   async function shareResult() {
     if (!session || !atBat) return;
     const text = formatShareSummary({
@@ -553,14 +564,40 @@ export function DailyGame() {
       finalPlay: session.finalPlay,
       isDaily,
     });
+    const payload: ShareData = {
+      title: "Legendary At Bats ⚾",
+      text,
+      url: SHARE_GAME_URL,
+    };
     try {
+      if (typeof navigator.share === "function") {
+        const canShare =
+          typeof navigator.canShare !== "function" || navigator.canShare(payload);
+        if (canShare) {
+          await navigator.share(payload);
+          flashShare("Shared!");
+          return;
+        }
+      }
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 2000);
+        flashShare("Copied!");
+        return;
       }
-    } catch {
-      setError("Could not copy share text.");
+      setError("Sharing isn’t available in this browser.");
+    } catch (err) {
+      // User dismissed the system share sheet — not an error.
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+          flashShare("Copied!");
+          return;
+        }
+      } catch {
+        /* fall through */
+      }
+      setError("Could not share result.");
     }
   }
 
@@ -703,7 +740,7 @@ export function DailyGame() {
           <ResultScreen
             atBat={atBat}
             session={session}
-            copied={copied}
+            shareFlash={shareFlash}
             pending={pending}
             isInning={isInning}
             inningOver={isInning && !!inningSnap && isInningOver(inningSnap)}
@@ -1228,7 +1265,7 @@ function RewriteOfferScreen({
 function ResultScreen({
   atBat,
   session,
-  copied,
+  shareFlash,
   pending,
   isInning,
   inningOver,
@@ -1244,7 +1281,7 @@ function ResultScreen({
 }: {
   atBat: LegendaryAtBat;
   session: AtBatSessionResult;
-  copied: boolean;
+  shareFlash: string | null;
   pending: boolean;
   isInning: boolean;
   inningOver: boolean;
@@ -1396,7 +1433,7 @@ function ResultScreen({
           </Button>
         ) : (
           <Button size="lg" className="h-12" onClick={onShare}>
-            {copied ? "Copied!" : "Copy result"}
+            {shareFlash ?? "Share result"}
           </Button>
         )}
         <div className="grid gap-2 sm:grid-cols-3">
@@ -1407,7 +1444,7 @@ function ResultScreen({
           )}
           {isInning && (
             <Button size="lg" variant="secondary" className="h-11" onClick={onShare}>
-              {copied ? "Copied!" : "Copy"}
+              {shareFlash ?? "Share"}
             </Button>
           )}
           <Button size="lg" variant="secondary" className="h-11" onClick={onCatalog}>
