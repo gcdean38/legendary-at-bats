@@ -35,6 +35,7 @@ import {
   isWalkOff,
   shouldOfferRewriteContinue,
   type AbLogEntry,
+  type Bot9Difficulty,
   type InningState,
 } from "@/lib/inning";
 import {
@@ -318,11 +319,11 @@ export function DailyGame() {
     });
   }
 
-  /** Fresh bottom of the 9th — down 0–3, empty bases. */
-  function startInning() {
+  /** Fresh bottom of the 9th — easy/medium/hard deficit, empty bases. */
+  function startInning(difficulty: Bot9Difficulty = "medium") {
     clearInningPopTimer();
     setInningPop(null);
-    const state = createInning();
+    const state = createInning(difficulty);
     inningRef.current = state;
     setInningSnap(state);
     selectAtBat(atBatFromInning(state), "inning");
@@ -716,7 +717,7 @@ export function DailyGame() {
             catalogSize={LEGENDARY_AT_BATS.length}
             onPlayDaily={() => selectAtBat(atBat, "daily")}
             onOpenCatalog={() => setPhase("catalog")}
-            onInning={startInning}
+            onInning={(difficulty) => startInning(difficulty)}
           />
         )}
         {phase === "catalog" && (
@@ -859,7 +860,7 @@ function IntroScreen({
   daily: LegendaryAtBat;
   onPlayDaily: () => void;
   onOpenCatalog: () => void;
-  onInning: () => void;
+  onInning: (difficulty: Bot9Difficulty) => void;
   catalogSize: number;
 }) {
   return (
@@ -926,14 +927,33 @@ function IntroScreen({
             {catalogSize}
           </span>
         </Button>
-        <Button
-          size="lg"
-          variant="secondary"
-          className="h-12 w-full text-base"
-          onClick={onInning}
-        >
-          Bottom of the 9th
-        </Button>
+        <div className="space-y-2">
+          <p className="text-center text-xs uppercase tracking-[0.22em] text-muted-foreground">
+            Bottom of the 9th
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {(
+              [
+                { id: "easy", label: "Easy", sub: "Down 1" },
+                { id: "medium", label: "Medium", sub: "Down 2" },
+                { id: "hard", label: "Hard", sub: "Down 3" },
+              ] as const
+            ).map((opt) => (
+              <Button
+                key={opt.id}
+                size="lg"
+                variant="secondary"
+                className="h-14 flex-col gap-0.5 px-1 text-sm"
+                onClick={() => onInning(opt.id)}
+              >
+                <span className="font-semibold">{opt.label}</span>
+                <span className="text-[10px] font-normal text-muted-foreground">
+                  {opt.sub}
+                </span>
+              </Button>
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   );

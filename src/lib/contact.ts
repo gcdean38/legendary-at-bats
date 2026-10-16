@@ -121,8 +121,9 @@ export function barrelReach(opts: {
 /**
  * Cut-and-dry vertical contact model (y grows downward):
  * - Above ball midpoint → grounder only (single / GIDP / ground out)
- * - Flush on the midline (click in the ball) → home run
- * - Midline, not flush → line drive (double / single / line out)
+ * - In-ball on midline + solid timing → home run
+ * - In-ball on midline but mistimed, or high-quality liner → double
+ * - Midline medium quality → single; weak → line out
  * - Below the ball → fly out (sac fly if R3)
  */
 export function estimateContact(opts: {
@@ -146,25 +147,32 @@ export function estimateContact(opts: {
   let quality = clamp(proximity * 0.55 + tFactor * 0.45, 0, 1);
 
   // Vertical bands relative to the ball's equator
-  const aboveMid = dy < -0.008;
-  const belowBall = dy > 0.012;
+  // Midline is a bit taller so gap liners aren't a razor slice.
+  const aboveMid = dy < -0.012;
+  const belowBall = dy > 0.016;
   const onMidline = !aboveMid && !belowBall;
-  const flush =
+  /** Click center inside the ball on the midline with usable timing. */
+  const inBallMid =
     onMidline &&
     euclid <= BALL_RADIUS &&
     reach.onBat &&
     tFactor >= 0.35;
+  /** True barrel — in-ball + timing + center contact locked enough for a HR. */
+  const flushHr =
+    inBallMid && tFactor >= 0.62 && proximity >= 0.72;
 
-  if (flush) quality = Math.max(quality, 0.97);
+  if (inBallMid) quality = Math.max(quality, flushHr ? 0.97 : 0.9);
 
   // Launch labels match the band (display only — play is band-driven)
   const launchDeg = aboveMid
     ? Math.round(clamp(-12 + quality * 14, -20, 5))
     : belowBall
       ? Math.round(clamp(28 + quality * 12, 28, 45))
-      : flush
+      : flushHr
         ? 32
-        : Math.round(clamp(10 + quality * 12, 8, 24));
+        : inBallMid
+          ? Math.round(clamp(18 + quality * 8, 14, 28))
+          : Math.round(clamp(10 + quality * 12, 8, 24));
 
   let exitVeloMph = exitVeloFromQuality(quality);
 
@@ -235,17 +243,24 @@ export function estimateContact(opts: {
   }
 
   // ---- Midline ----
-  // Flush in the ball → home run
-  if (flush) {
+  // True barrel (in-ball + solid timing) → home run
+  if (flushHr) {
     exitVeloMph = Math.max(exitVeloMph, exitVeloFromQuality(1));
     return pack("home_run", "crush", vertical, quality, launchDeg, exitVeloMph);
   }
 
-  // Otherwise line drive: gapper / single / line out
-  if (quality >= 0.88) {
+  // In-ball but early/late → gap double (not a moonshot)
+  if (inBallMid) {
+    exitVeloMph = Math.max(exitVeloMph, exitVeloFromQuality(0.92));
     return pack("double", "crush", vertical, quality, launchDeg, exitVeloMph);
   }
-  if (quality >= 0.72) {
+
+  // Near-miss liners: gapper / single / line out
+  // Doubles take from the old high line-out band; HRs are rarer barrels.
+  if (quality >= 0.68) {
+    return pack("double", "crush", vertical, quality, launchDeg, exitVeloMph);
+  }
+  if (quality >= 0.52) {
     return pack("single", "line", vertical, quality, launchDeg, exitVeloMph);
   }
   return pack("line_out", "line", vertical, quality, launchDeg, exitVeloMph);
@@ -371,10 +386,12 @@ export const CONTACT_OUTCOME_GUIDE = {
     ground_out: "else",
   },
   midline: {
-    flush_hr: "click inside the ball disc on the midline → home run",
-    double: "else quality ≥ 0.88 → gap double",
-    single: "else quality ≥ 0.72 → single",
-    line_out: "else",
+    flush_hr:
+      "in-ball on midline + timing ≥ 0.62 + proximity ≥ 0.72 → home run",
+    in_ball_double: "in-ball on midline but not a true barrel → gap double",
+    double: "else quality ≥ 0.68 → gap double",
+    single: "else quality ≥ 0.52 → single",
+    line_out: "else (weak liner)",
   },
   below_ball: {
     band: "aim below the ball → fly out",

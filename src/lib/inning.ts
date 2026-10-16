@@ -126,12 +126,24 @@ export function shouldOfferRewriteContinue(
   }
 }
 
+/** Bot 9 difficulty — fixed deficit (no random hole). */
+export type Bot9Difficulty = "easy" | "medium" | "hard";
+
+export const BOT9_DEFICIT: Record<Bot9Difficulty, 1 | 2 | 3> = {
+  easy: 1,
+  medium: 2,
+  hard: 3,
+};
+
 /**
- * Bottom of the 9th: home batting, down 0–3 runs (0 = tied),
- * empty bases, 0 outs. Simulated pitcher with a full arsenal.
+ * Bottom of the 9th: home batting, empty bases, 0 outs.
+ * Deficit is chosen by difficulty: easy 1 · medium 2 · hard 3.
  */
-export function createInning(rng: () => number = Math.random): InningState {
-  const startDeficit = Math.floor(rng() * 4); // 0, 1, 2, or 3
+export function createInning(
+  difficulty: Bot9Difficulty = "medium",
+  rng: () => number = Math.random,
+): InningState {
+  const startDeficit = BOT9_DEFICIT[difficulty];
   const awayRuns = 2 + Math.floor(rng() * 5); // 2–6
   const homeRuns = awayRuns - startDeficit;
   const throws: "L" | "R" = rng() < 0.28 ? "L" : "R";
