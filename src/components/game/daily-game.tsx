@@ -546,9 +546,11 @@ export function DailyGame() {
     const text = formatShareSummary({
       dateKey: session.dateKey,
       codename: atBat.codename,
+      year: atBat.year,
+      series: atBat.series,
+      gameLabel: atBat.gameLabel,
       stars: session.stars,
-      verdict: session.historyVerdict,
-      endingTitle: session.endingTitle,
+      finalPlay: session.finalPlay,
       isDaily,
     });
     try {
