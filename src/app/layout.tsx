@@ -24,9 +24,15 @@ export const metadata: Metadata = {
   title: "Legendary At Bats",
   description: siteDescription,
   applicationName: "Legendary At Bats",
+  // Paths must be relative to metadataBase (no leading "/"). A root-absolute
+  // "/icon.png" ignores the /legendary-at-bats basePath on GitHub Pages and 404s.
   icons: {
-    icon: [{ url: "/icon.png", type: "image/png", sizes: "512x512" }],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+    icon: [
+      { url: "favicon.ico", sizes: "any" },
+      { url: "icon.png", type: "image/png", sizes: "512x512" },
+    ],
+    shortcut: ["favicon.ico"],
+    apple: [{ url: "apple-touch-icon.png", sizes: "180x180" }],
   },
   openGraph: {
     type: "website",
@@ -36,7 +42,7 @@ export const metadata: Metadata = {
     description: siteDescription,
     images: [
       {
-        url: "/og.jpg",
+        url: "og.jpg",
         width: 1280,
         height: 720,
         alt: "Legendary At Bats — step into legendary playoff moments",
@@ -47,7 +53,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Legendary At Bats",
     description: siteDescription,
-    images: ["/og.jpg"],
+    images: ["og.jpg"],
   },
 };
 
