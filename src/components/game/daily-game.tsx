@@ -22,10 +22,26 @@ import type {
   CountState,
   GamePhase,
   LegendaryAtBat,
+  PitchEvent,
   PitchResultGrade,
   ZoneCoord,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
+/** Strike = red, ball = green, ball-in-play = blue */
+function pitchSequenceColor(event: PitchEvent): string {
+  switch (event) {
+    case "ball":
+      return "text-emerald-400";
+    case "hit":
+    case "out":
+      return "text-sky-400";
+    case "strike":
+    case "foul":
+    default:
+      return "text-red-400";
+  }
+}
 
 const EXIT_MS = 1200;
 /** After the pitch arrives, brief beat then auto-take if no swing. */
@@ -279,6 +295,7 @@ export function DailyGame() {
       windowMs: flightMsRef.current,
       bases: atBat.bases,
       outs: atBat.outs,
+      countBefore: countRef.current,
       bats: atBat.batter.bats,
     });
     commitPitchGrade(grade);
@@ -294,6 +311,7 @@ export function DailyGame() {
       windowMs: flightMsRef.current,
       bases: atBat.bases,
       outs: atBat.outs,
+      countBefore: countRef.current,
       bats: atBat.batter.bats,
     });
     commitPitchGrade(grade, coord);
@@ -894,6 +912,32 @@ function ResultScreen({
         <p className="mt-2 text-sm font-medium text-foreground">
           {pending ? "Finalizing…" : starsBlurb}
         </p>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+          Pitch sequence
+        </p>
+        <ul className="space-y-1.5">
+          {session.grades.map((g, i) => (
+            <li
+              key={g.pitchId}
+              className={cn(
+                "flex items-center justify-between rounded-md bg-secondary/40 px-3 py-2 text-sm font-medium",
+                pitchSequenceColor(g.event),
+              )}
+            >
+              <span>
+                P{i + 1} · {pitchTypeLabel(g.pitchType)} · {g.speedMph} mph
+              </span>
+              <span className="text-xs tabular-nums opacity-90">
+                {g.countBefore.balls}–{g.countBefore.strikes}
+                <span className="mx-1.5 opacity-50">·</span>
+                {playResultLabel(g.play)}
+              </span>
+            </li>
+          ))}
+        </ul>
       </div>
 
       <div className="mt-auto grid gap-2">

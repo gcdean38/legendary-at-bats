@@ -135,6 +135,12 @@ export type EndingTone =
 
 export type PitchResultGrade = {
   pitchId: string;
+  /** Pitch type (FF, SL, …) for the sequence log */
+  pitchType: PitchType;
+  /** Release speed cue shown in the sequence log */
+  speedMph: number;
+  /** Count when this pitch was thrown (before the outcome) */
+  countBefore: CountState;
   decision: PitchDecision;
   decisionCorrect: boolean;
   swung: boolean;
