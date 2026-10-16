@@ -1307,6 +1307,7 @@ function PitchScreen({
           live={live}
           target={pitch.location}
           pitchType={pitch.type}
+          throws={atBat.pitcher.throws}
           bats={atBat.batter.bats}
           aim={aim}
           showTarget={phase === "pitch_result"}

@@ -56,30 +56,6 @@ function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t;
 }
 
-/**
- * Early tunnel bias by pitch type (catcher's view: +x = right / arm side).
- * Break pitches start slightly opposite their finish so the late move
- * reads as a sweep — and the ball ALWAYS ends exactly on `target`.
- */
-function startBias(type: PitchType): ZoneCoord {
-  switch (type) {
-    case "SL":
-      // Shows arm-side early, sweeps glove-side into the spot
-      return { x: 0.1, y: -0.02 };
-    case "CT":
-      return { x: 0.05, y: -0.01 };
-    case "CU":
-      return { x: -0.03, y: -0.08 }; // high early, drops in
-    case "CH":
-      return { x: -0.02, y: -0.04 };
-    case "SI":
-      return { x: -0.06, y: -0.02 };
-    case "FF":
-    default:
-      return { x: 0, y: -0.03 };
-  }
-}
-
 /** Commit curve: break pitches stay ambiguous longer, then snap. */
 function commitT(type: PitchType, progress: number): number {
   const p = clamp01(progress);
@@ -96,25 +72,19 @@ function commitT(type: PitchType, progress: number): number {
 }
 
 /**
- * Path from tunnel release → plate location.
- * Early frames stay near center (with pitch-type bias); late frames commit
- * through the zone to the exact target — catcher's-eye, not top-down.
+ * Path from shared release → plate location.
+ * Every pitch tunnels from the same spot; late frames commit through the
+ * zone to the exact target — catcher's-eye, not top-down.
  */
 export function ballPositionAt(
   progress: number,
   target: ZoneCoord,
   pitchType: PitchType,
 ): ZoneCoord {
-  const p = clamp01(progress);
-  const t = commitT(pitchType, p);
-  const bias = startBias(pitchType);
-  const start: ZoneCoord = {
-    x: RELEASE.x + bias.x,
-    y: RELEASE.y + bias.y,
-  };
+  const t = commitT(pitchType, progress);
   return {
-    x: lerp(start.x, target.x, t),
-    y: lerp(start.y, target.y, t),
+    x: lerp(RELEASE.x, target.x, t),
+    y: lerp(RELEASE.y, target.y, t),
   };
 }
 
@@ -125,46 +95,43 @@ export function ballScaleAt(progress: number): number {
 }
 
 /**
- * Seam spin for the inbound baseball — orientation + tumble that
- * telegraphs break direction (catcher's eye).
+ * Seam motion for the inbound baseball (catcher's eye).
  *
- * `axisTiltDeg` sets the spin plane (0 ≈ 12–6 tumble, ~70 ≈ sidewheel).
- * `side` mirrors glove-side vs arm-side break. `spinDeg` is how far
- * the seams have rotated by this frame of the flight.
+ * - Fastballs: no visible spin (tight 4-seam / hard look).
+ * - Breaking: face rotates CW for RHP, CCW for LHP (classic hitters' cue).
+ * - Offspeed: tumbles forward "over itself" (end-over-end toward the plate).
+ *
+ * CSS `rotate` is clockwise-positive when facing the element.
  */
 export type BallSeamStyle = {
-  spinDeg: number;
-  axisTiltDeg: number;
-  side: 1 | -1;
+  /** Face spin in degrees (clockwise positive) */
+  spinZ: number;
+  /** Forward tumble in degrees (offspeed rolling over itself) */
+  spinX: number;
 };
 
 export function ballSeamStyle(
   progress: number,
   pitchType: PitchType,
+  throws: "L" | "R" = "R",
 ): BallSeamStyle {
   const p = clamp01(progress);
-  // Ease spin up a touch late so early tunnel stays readable, then the
-  // seams really start talking as the pitch commits.
   const spinT = p * p * (3 - 2 * p);
-  switch (pitchType) {
-    case "SL":
-      // Sidewheel / bullet look — glove-side sweep
-      return { spinDeg: spinT * 560, axisTiltDeg: 78, side: -1 };
-    case "CT":
-      return { spinDeg: spinT * 500, axisTiltDeg: 58, side: -1 };
-    case "CU":
-      // Near 12–6 topspin (opposite tumble of a four-seamer)
-      return { spinDeg: -spinT * 480, axisTiltDeg: 10, side: 1 };
-    case "SI":
-      // Arm-side run — tilted backspin
-      return { spinDeg: spinT * 420, axisTiltDeg: 38, side: 1 };
-    case "CH":
-      return { spinDeg: spinT * 300, axisTiltDeg: 20, side: 1 };
-    case "FF":
-    default:
-      // Four-seam backspin — mostly upright tumble
-      return { spinDeg: spinT * 580, axisTiltDeg: 14, side: 1 };
+  const family = pitchFamily(pitchType);
+
+  if (family === "fastball") {
+    return { spinZ: 0, spinX: 0 };
   }
+
+  if (family === "offspeed") {
+    // End-over-end tumble toward the catcher — seams flip over the top.
+    return { spinZ: 0, spinX: spinT * 420 };
+  }
+
+  // Breaking: RHP clockwise, LHP counterclockwise from catcher's view.
+  const dir = throws === "R" ? 1 : -1;
+  const amount = pitchType === "CU" ? 480 : 560;
+  return { spinZ: dir * spinT * amount, spinX: 0 };
 }
 
 export type ExitVisual = {

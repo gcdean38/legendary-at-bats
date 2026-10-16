@@ -18,6 +18,7 @@ type Props = {
   live?: boolean;
   target: ZoneCoord;
   pitchType: PitchType;
+  throws?: "L" | "R";
   bats?: BatterHand;
   aim?: ZoneCoord;
   showTarget?: boolean;
@@ -46,6 +47,7 @@ export function StrikeZone({
   live = false,
   target,
   pitchType,
+  throws = "R",
   bats = "R",
   aim,
   showTarget = false,
@@ -290,6 +292,7 @@ export function StrikeZone({
             sizeRem={1.15 + inboundScale}
             progress={ballProgress}
             pitchType={pitchType}
+            throws={throws}
             opacity={0.45 + ballProgress * 0.55}
           />
         )}
@@ -301,6 +304,7 @@ export function StrikeZone({
             sizeRem={1.35}
             progress={1}
             pitchType={pitchType}
+            throws={throws}
             opacity={0.85}
           />
         )}
@@ -366,13 +370,14 @@ export function StrikeZone({
   );
 }
 
-/** Catcher's-eye baseball with spinning seams that telegraph break. */
+/** Catcher's-eye baseball with seam cues by pitch family + pitcher hand. */
 function InboundBaseball({
   leftPct,
   topPct,
   sizeRem,
   progress,
   pitchType,
+  throws,
   opacity,
 }: {
   leftPct: number;
@@ -380,10 +385,11 @@ function InboundBaseball({
   sizeRem: number;
   progress: number;
   pitchType: PitchType;
+  throws: "L" | "R";
   opacity: number;
 }) {
   const gid = useId().replace(/:/g, "");
-  const seam = ballSeamStyle(progress, pitchType);
+  const seam = ballSeamStyle(progress, pitchType, throws);
   const skinId = `ball-skin-${gid}`;
 
   return (
@@ -395,7 +401,7 @@ function InboundBaseball({
         width: `${sizeRem}rem`,
         height: `${sizeRem}rem`,
         opacity,
-        transform: `translate(-50%, -50%) rotate(${seam.axisTiltDeg * seam.side}deg)`,
+        transform: `translate(-50%, -50%) perspective(48px) rotateX(${seam.spinX}deg)`,
         filter: "drop-shadow(0 0 14px oklch(0.84 0.15 78 / 0.55))",
       }}
       aria-hidden
@@ -404,7 +410,7 @@ function InboundBaseball({
         viewBox="0 0 40 40"
         className="h-full w-full"
         style={{
-          transform: `rotate(${seam.spinDeg}deg)`,
+          transform: `rotate(${seam.spinZ}deg)`,
           transformOrigin: "50% 50%",
         }}
       >
