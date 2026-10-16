@@ -147,14 +147,20 @@ export function abLogLine(play: PlayResult, runsScored: number): string {
 }
 
 /**
- * After a legendary AB in a deep hole: offer rewrite continue if they
- * reached / plated and outs remain (rally still alive, not yet ahead).
+ * After a legendary AB for the side that lost historically: if the player
+ * reaches / plates and the rally is still alive (outs remain, not ahead),
+ * offer to keep rewriting history with the next batters.
+ *
+ * Winning-team moments (historical success) never offer rewrite — the
+ * legend already flipped. Deep-hole or not doesn't matter (e.g. Martinez
+ * down 1 with traffic still qualifies).
  */
 export function shouldOfferRewriteContinue(
   atBat: LegendaryAtBat,
   session: AtBatSessionResult,
 ): boolean {
-  if (!isDeepHoleAtBat(atBat)) return false;
+  // Only when batting as the team that ended up losing this moment.
+  if (atBat.historical.batterSucceeded) return false;
   if (session.board.outs >= 3) return false;
 
   const home = batterIsHome(atBat);

@@ -1,5 +1,5 @@
 /**
- * Follow-up batters for deep-hole legendary rewrites.
+ * Follow-up batters for legendary rewrites (losing-team moments).
  * After the scripted AB, these teammates step up until the lead
  * flips or the third out is recorded.
  */
@@ -10,6 +10,17 @@ export type RewriteBatter = {
 };
 
 export const REWRITE_LINEUPS: Record<string, RewriteBatter[]> = {
+  /** 2016 WS G7 — Martinez last chance, Indians trailing */
+  "2016-ws7-cleveland-1": [
+    { name: "Carlos Santana", number: 41, bats: "S" },
+    { name: "Jason Kipnis", number: 22, bats: "L" },
+    { name: "Francisco Lindor", number: 12, bats: "S" },
+    { name: "Mike Napoli", number: 26, bats: "R" },
+    { name: "Jose Ramirez", number: 11, bats: "S" },
+    { name: "Lonnie Chisenhall", number: 8, bats: "L" },
+    { name: "Tyler Naquin", number: 30, bats: "L" },
+    { name: "Roberto Perez", number: 55, bats: "R" },
+  ],
   /** 2023 WS G5 — Arizona down 5, Marte last chance */
   "2023-ws5-arizona-4": [
     { name: "Corbin Carroll", number: 7, bats: "L" },

@@ -524,7 +524,7 @@ export function DailyGame() {
         return;
       }
 
-      // Deep-hole legendary: offer to keep rewriting history
+      // Losing-team legendary: offer to keep rewriting history
       if (shouldOfferRewriteContinue(atBat, final)) {
         setInningPop(null);
         setPhase("rewrite_offer");
