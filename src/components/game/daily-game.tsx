@@ -21,7 +21,14 @@ import {
   outcomeLabel,
   pitchTypeLabel,
 } from "@/lib/scoring";
-import { generateUnlimitedAtBat } from "@/lib/unlimited";
+import {
+  advanceInning,
+  atBatFromInning,
+  createInning,
+  inningSummary,
+  isInningOver,
+  type InningState,
+} from "@/lib/inning";
 import type {
   AtBatEndReason,
   AtBatSessionResult,
@@ -34,7 +41,7 @@ import type {
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-type PlayMode = "daily" | "practice" | "unlimited";
+type PlayMode = "daily" | "practice" | "inning";
 
 /** Strike = red, ball = green, ball-in-play = blue */
 function pitchSequenceColor(event: PitchEvent): string {
@@ -64,7 +71,8 @@ export function DailyGame() {
   const [dateKey, setDateKey] = useState("");
   const [playMode, setPlayMode] = useState<PlayMode>("daily");
   const isDaily = playMode === "daily";
-  const isUnlimited = playMode === "unlimited";
+  const isInning = playMode === "inning";
+  const [inningSnap, setInningSnap] = useState<InningState | null>(null);
   const [pitchCursor, setPitchCursor] = useState(0);
   const [count, setCount] = useState<CountState>({ balls: 0, strikes: 0 });
   const [grades, setGrades] = useState<PitchResultGrade[]>([]);
@@ -89,8 +97,8 @@ export function DailyGame() {
   const postResultDelayRef = useRef<number | null>(null);
   /** Auto-show How to Play only on the first at-bat of this session. */
   const howToSeenRef = useRef(false);
-  /** Running Unlimited at-bat number within this session. */
-  const unlimitedCountRef = useRef(0);
+  /** Live inning state while playMode === "inning". */
+  const inningRef = useRef<InningState | null>(null);
 
   const currentPitch =
     atBat && atBat.pitches.length > 0
@@ -221,25 +229,39 @@ export function DailyGame() {
     setCopied(false);
   }
 
-  function selectAtBat(next: LegendaryAtBat, mode: PlayMode) {
+  function selectAtBat(
+    next: LegendaryAtBat,
+    mode: PlayMode,
+    opts?: { skipSituation?: boolean },
+  ) {
     cancelFlight();
     resetBattleState();
     setAtBat(next);
     setPlayMode(mode);
     setDateKey(mode === "daily" ? utcDateKey(new Date()) : next.codename);
-    setPhase("situation");
+    setPhase(opts?.skipSituation ? "pitch_windup" : "situation");
     if (!howToSeenRef.current) {
       howToSeenRef.current = true;
       setHowToOpen(true);
     }
   }
 
-  function startUnlimited() {
-    unlimitedCountRef.current += 1;
-    selectAtBat(
-      generateUnlimitedAtBat(unlimitedCountRef.current),
-      "unlimited",
-    );
+  /** Fresh half-inning from 0 outs / empty bases. */
+  function startInning() {
+    const state = createInning();
+    inningRef.current = state;
+    setInningSnap(state);
+    selectAtBat(atBatFromInning(state), "inning");
+  }
+
+  /** Next batter in the same half, or a new inning if three outs. */
+  function continueInning() {
+    const state = inningRef.current;
+    if (!state || isInningOver(state)) {
+      startInning();
+      return;
+    }
+    selectAtBat(atBatFromInning(state), "inning", { skipSituation: true });
   }
 
   function beginPitch() {
@@ -356,6 +378,11 @@ export function DailyGame() {
         endReason: reason,
         finalCount,
       });
+      if (inningRef.current) {
+        const next = advanceInning(inningRef.current, final);
+        inningRef.current = next;
+        setInningSnap(next);
+      }
       setSession(final);
       setPhase("result");
     });
@@ -405,7 +432,8 @@ export function DailyGame() {
   function goHome() {
     cancelFlight();
     resetBattleState();
-    unlimitedCountRef.current = 0;
+    inningRef.current = null;
+    setInningSnap(null);
     try {
       const pick = getDailyAtBat(new Date());
       setAtBat(pick.atBat);
@@ -442,7 +470,7 @@ export function DailyGame() {
             catalogSize={LEGENDARY_AT_BATS.length}
             onPlayDaily={() => selectAtBat(atBat, "daily")}
             onOpenCatalog={() => setPhase("catalog")}
-            onUnlimited={startUnlimited}
+            onInning={startInning}
           />
         )}
         {phase === "catalog" && (
@@ -497,14 +525,16 @@ export function DailyGame() {
             session={session}
             copied={copied}
             pending={pending}
-            isUnlimited={isUnlimited}
+            isInning={isInning}
+            inningOver={isInning && !!inningSnap && isInningOver(inningSnap)}
+            inningLine={
+              isInning && inningSnap ? inningSummary(inningSnap) : null
+            }
             onShare={shareResult}
             onReplay={() =>
-              isUnlimited
-                ? startUnlimited()
-                : selectAtBat(atBat, playMode)
+              isInning ? startInning() : selectAtBat(atBat, playMode)
             }
-            onNextUnlimited={isUnlimited ? startUnlimited : undefined}
+            onContinueInning={isInning ? continueInning : undefined}
             onCatalog={() => {
               resetBattleState();
               setPhase("catalog");
@@ -565,14 +595,14 @@ function IntroScreen({
   daily,
   onPlayDaily,
   onOpenCatalog,
-  onUnlimited,
+  onInning,
   catalogSize,
 }: {
   dateKey: string;
   daily: LegendaryAtBat;
   onPlayDaily: () => void;
   onOpenCatalog: () => void;
-  onUnlimited: () => void;
+  onInning: () => void;
   catalogSize: number;
 }) {
   return (
@@ -617,9 +647,9 @@ function IntroScreen({
           size="lg"
           variant="secondary"
           className="h-12 w-full text-base"
-          onClick={onUnlimited}
+          onClick={onInning}
         >
-          Unlimited
+          Play an inning
         </Button>
       </div>
     </section>
@@ -694,8 +724,8 @@ function SituationScreen({
   const modeBadge =
     playMode === "daily"
       ? dateKey
-      : playMode === "unlimited"
-        ? "Unlimited"
+      : playMode === "inning"
+        ? "Inning"
         : "Practice";
 
   return (
@@ -914,10 +944,12 @@ function ResultScreen({
   session,
   copied,
   pending,
-  isUnlimited,
+  isInning,
+  inningOver,
+  inningLine,
   onShare,
   onReplay,
-  onNextUnlimited,
+  onContinueInning,
   onCatalog,
   onHome,
 }: {
@@ -925,15 +957,20 @@ function ResultScreen({
   session: AtBatSessionResult;
   copied: boolean;
   pending: boolean;
-  isUnlimited: boolean;
+  isInning: boolean;
+  inningOver: boolean;
+  inningLine: string | null;
   onShare: () => void;
   onReplay: () => void;
-  onNextUnlimited?: () => void;
+  onContinueInning?: () => void;
   onCatalog: () => void;
   onHome: () => void;
 }) {
-  const starsBlurb =
-    session.stars >= 3
+  const starsBlurb = isInning
+    ? inningOver
+      ? (inningLine ?? "Inning over")
+      : "Keep the line moving"
+    : session.stars >= 3
       ? "Won the game"
       : session.stars === 2
         ? "Do your job"
@@ -945,7 +982,7 @@ function ResultScreen({
         away={session.board.away}
         home={session.board.home}
         inning={atBat.inning}
-        outs={session.board.outs}
+        outs={Math.min(3, session.board.outs)}
         count={session.board.count}
         bases={session.board.bases}
       />
@@ -953,14 +990,18 @@ function ResultScreen({
       <div className="space-y-2 text-center">
         <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
           {atBat.codename}
+          {isInning && atBat.gameLabel ? ` · ${atBat.gameLabel}` : ""}
         </p>
         <h2 className="font-[family-name:var(--font-display)] text-5xl tracking-wide text-chalk">
-          {session.endingTitle}
+          {isInning && inningOver ? "Inning over" : session.endingTitle}
         </h2>
         <p className="text-sm text-flood">
           {playResultLabel(session.finalPlay)}
           {session.runsScored > 0 ? ` · ${session.runsScored} R` : ""}
         </p>
+        {isInning && inningLine && (
+          <p className="text-xs text-muted-foreground">{inningLine}</p>
+        )}
       </div>
 
       <div className="rounded-md bg-secondary/50 p-5 text-center">
@@ -973,7 +1014,7 @@ function ResultScreen({
         </p>
       </div>
 
-      {!isUnlimited && (
+      {!isInning && (
         <div className="space-y-2 rounded-md border border-border/80 bg-background/40 p-4">
           <p className="text-xs uppercase tracking-[0.22em] text-flood">
             What actually happened
@@ -1017,9 +1058,9 @@ function ResultScreen({
       </div>
 
       <div className="mt-auto grid gap-2">
-        {isUnlimited && onNextUnlimited ? (
-          <Button size="lg" className="h-12" onClick={onNextUnlimited}>
-            Next at-bat
+        {isInning && onContinueInning ? (
+          <Button size="lg" className="h-12" onClick={onContinueInning}>
+            {inningOver ? "New inning" : "Next batter"}
           </Button>
         ) : (
           <Button size="lg" className="h-12" onClick={onShare}>
@@ -1027,12 +1068,12 @@ function ResultScreen({
           </Button>
         )}
         <div className="grid gap-2 sm:grid-cols-3">
-          {!isUnlimited && (
+          {!isInning && (
             <Button size="lg" variant="secondary" className="h-11" onClick={onReplay}>
               Replay
             </Button>
           )}
-          {isUnlimited && (
+          {isInning && (
             <Button size="lg" variant="secondary" className="h-11" onClick={onShare}>
               {copied ? "Copied!" : "Copy"}
             </Button>

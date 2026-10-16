@@ -16,7 +16,7 @@ export function arsenalFromPitches(pitches: SeedPitch[]): ArsenalPitch[] {
   return [...byType.entries()].map(([type, speedMph]) => ({ type, speedMph }));
 }
 
-/** Default arsenal for Unlimited mode (generic big-league mix). */
+/** Default arsenal for Inning mode (generic big-league mix). */
 export const GENERIC_ARSENAL: ArsenalPitch[] = [
   { type: "FF", speedMph: 95 },
   { type: "SI", speedMph: 93 },
@@ -99,7 +99,7 @@ export function throwFromArsenal(
   };
 }
 
-/** Opening sequence for Unlimited — N fresh throws from a generic arsenal. */
+/** Opening sequence — N fresh throws from an arsenal. */
 export function generateOpeningSequence(
   arsenal: ArsenalPitch[],
   count: number,
