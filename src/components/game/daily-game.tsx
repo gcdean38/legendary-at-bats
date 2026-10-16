@@ -85,6 +85,8 @@ function pitchSequenceColor(event: PitchEvent): string {
 }
 
 const EXIT_MS = 1200;
+/** After BIP exit flight finishes, hold so the outcome label can land. */
+const BIP_REVEAL_HOLD_MS = 1100;
 /** After the pitch arrives, brief beat then auto-take if no swing. */
 const LATE_TAKE_GRACE_MS = 450;
 /** Auto-advance between pitches (3–2–1 grow/fade; not on AB end). */
@@ -384,7 +386,18 @@ export function DailyGame() {
     cancelContinueTimer();
     cancelPostResultDelay();
     if (grade.swung) {
-      startExitLoop(() => advanceAfterFeedback());
+      const bip = !isNonBipPlay(grade.play);
+      startExitLoop(() => {
+        if (bip) {
+          // Keep them in suspense through the flight; reveal, then hold.
+          postResultDelayRef.current = window.setTimeout(() => {
+            postResultDelayRef.current = null;
+            advanceAfterFeedback();
+          }, BIP_REVEAL_HOLD_MS);
+        } else {
+          advanceAfterFeedback();
+        }
+      });
     } else {
       setExitProgress(0);
       postResultDelayRef.current = window.setTimeout(() => {
@@ -1030,10 +1043,19 @@ function PitchScreen({
     atBat.batter.bats === "L"
       ? "Click = barrel sweet spot · tip points left"
       : "Click = barrel sweet spot · tip points right";
-  // After pitch flight ends (phase pitch_result), before next windup clears lastGrade.
-  const showOutcome = phase === "pitch_result" && lastGrade != null;
   const outcomeIsNonBip =
     lastGrade != null && isNonBipPlay(lastGrade.play);
+  // Non-BIP: show as soon as the pitch is decided. BIP: wait until exit flight ends.
+  const showOutcome =
+    phase === "pitch_result" &&
+    lastGrade != null &&
+    (outcomeIsNonBip || exitProgress >= 1);
+  const bipInFlight =
+    phase === "pitch_result" &&
+    lastGrade != null &&
+    !outcomeIsNonBip &&
+    exitProgress > 0 &&
+    exitProgress < 1;
 
   return (
     <section className="anim-rise flex min-h-[85dvh] flex-col gap-4 py-2">
@@ -1088,6 +1110,10 @@ function PitchScreen({
                   </p>
                 )}
               </>
+            ) : bipInFlight ? (
+              <p className="text-sm uppercase tracking-[0.22em] text-flood/85">
+                In play…
+              </p>
             ) : (
               <p className="text-sm text-muted-foreground/80">
                 {windup
