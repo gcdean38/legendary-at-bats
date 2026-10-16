@@ -67,6 +67,8 @@ function BaseDiamond({ bases }: { bases: BasesState }) {
 type IdentityLine = {
   abbr: string;
   number: number;
+  /** Optional real player name (legendary moments). */
+  name?: string;
 };
 
 type Props = {
@@ -96,8 +98,16 @@ export function ScoreBug({
   const identity =
     batter || pitcher
       ? [
-          batter ? `${batter.abbr} Batter: #${batter.number}` : null,
-          pitcher ? `${pitcher.abbr} Pitcher: #${pitcher.number}` : null,
+          batter
+            ? batter.name
+              ? `${batter.abbr} Batter: ${batter.name} #${batter.number}`
+              : `${batter.abbr} Batter: #${batter.number}`
+            : null,
+          pitcher
+            ? pitcher.name
+              ? `${pitcher.abbr} Pitcher: ${pitcher.name} #${pitcher.number}`
+              : `${pitcher.abbr} Pitcher: #${pitcher.number}`
+            : null,
         ]
           .filter(Boolean)
           .join(". ")
@@ -152,7 +162,8 @@ export function ScoreBug({
               <span className="font-semibold tracking-wide text-chalk">
                 {batter.abbr}
               </span>{" "}
-              Batter: #{batter.number}
+              Batter:{" "}
+              {batter.name ? `${batter.name} #${batter.number}` : `#${batter.number}`}
             </p>
           )}
           {pitcher && (
@@ -160,7 +171,10 @@ export function ScoreBug({
               <span className="font-semibold tracking-wide text-chalk">
                 {pitcher.abbr}
               </span>{" "}
-              Pitcher: #{pitcher.number}
+              Pitcher:{" "}
+              {pitcher.name
+                ? `${pitcher.name} #${pitcher.number}`
+                : `#${pitcher.number}`}
             </p>
           )}
         </div>

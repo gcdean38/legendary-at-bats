@@ -27,19 +27,22 @@ import {
 } from "@/lib/scoring";
 import {
   advanceInning,
-  atBatFromInning,
+  dealNextAtBat,
   createInning,
   createRewriteInning,
   inningSummary,
+  isBot9TiedForExtras,
   isInningOver,
   isWalkOff,
   shouldOfferRewriteContinue,
   type AbLogEntry,
+  type Bot9Difficulty,
   type InningState,
 } from "@/lib/inning";
 import {
   battingSideAbbr,
   pitchingSideAbbr,
+  playerIdentity,
   runnersLabel,
 } from "@/lib/situation";
 import { trackEvent } from "@/lib/analytics";
@@ -318,24 +321,24 @@ export function DailyGame() {
     });
   }
 
-  /** Fresh bottom of the 9th — down 0–3, empty bases. */
-  function startInning() {
+  /** Fresh bottom of the 9th — easy/medium/hard deficit, empty bases. */
+  function startInning(difficulty: Bot9Difficulty = "medium") {
     clearInningPopTimer();
     setInningPop(null);
-    const state = createInning();
-    inningRef.current = state;
-    setInningSnap(state);
-    selectAtBat(atBatFromInning(state), "inning");
+    const dealt = dealNextAtBat(createInning(difficulty));
+    inningRef.current = dealt.state;
+    setInningSnap(dealt.state);
+    selectAtBat(dealt.atBat, "inning");
   }
 
-  /** Next batter, or a new Bottom 9 if the inning ended. */
+  /** Next batter in an active Bottom 9 / rewrite rally. */
   function continueInning() {
     const state = inningRef.current;
-    if (!state || isInningOver(state)) {
-      startInning();
-      return;
-    }
-    selectAtBat(atBatFromInning(state), "inning", { skipSituation: true });
+    if (!state || isInningOver(state)) return;
+    const dealt = dealNextAtBat(state);
+    inningRef.current = dealt.state;
+    setInningSnap(dealt.state);
+    selectAtBat(dealt.atBat, "inning", { skipSituation: true });
   }
 
   function beginPitch() {
@@ -535,10 +538,10 @@ export function DailyGame() {
 
   function acceptRewriteContinue() {
     if (!atBat || !session) return;
-    const state = createRewriteInning(atBat, session);
-    inningRef.current = state;
-    setInningSnap(state);
-    selectAtBat(atBatFromInning(state), "inning", { skipSituation: true });
+    const dealt = dealNextAtBat(createRewriteInning(atBat, session));
+    inningRef.current = dealt.state;
+    setInningSnap(dealt.state);
+    selectAtBat(dealt.atBat, "inning", { skipSituation: true });
   }
 
   function declineRewriteContinue() {
@@ -716,7 +719,7 @@ export function DailyGame() {
             catalogSize={LEGENDARY_AT_BATS.length}
             onPlayDaily={() => selectAtBat(atBat, "daily")}
             onOpenCatalog={() => setPhase("catalog")}
-            onInning={startInning}
+            onInning={(difficulty) => startInning(difficulty)}
           />
         )}
         {phase === "catalog" && (
@@ -739,6 +742,11 @@ export function DailyGame() {
             dateKey={dateKey}
             count={count}
             playMode={playMode}
+            bot9Difficulty={
+              playMode === "inning" && inningSnap?.kind === "bot9"
+                ? inningSnap.bot9?.difficulty ?? null
+                : null
+            }
             onStart={() => beginPitchWindup()}
             onBack={goHome}
             onHowTo={() => setHowToOpen(true)}
@@ -782,16 +790,22 @@ export function DailyGame() {
             isInning={isInning}
             inningOver={isInning && !!inningSnap && isInningOver(inningSnap)}
             walkedOff={isInning && !!inningSnap && isWalkOff(inningSnap)}
+            tiedExtras={
+              isInning && !!inningSnap && isBot9TiedForExtras(inningSnap)
+            }
             inningLine={
               isInning && inningSnap ? inningSummary(inningSnap) : null
             }
             abLog={isInning && inningSnap ? inningSnap.abLog : null}
             inningKind={isInning && inningSnap ? inningSnap.kind : null}
             onShare={shareResult}
-            onReplay={() =>
-              isInning ? startInning() : selectAtBat(atBat, playMode)
+            onReplay={() => selectAtBat(atBat, playMode)}
+            onContinueInning={
+              isInning && inningSnap && !isInningOver(inningSnap)
+                ? continueInning
+                : undefined
             }
-            onContinueInning={isInning ? continueInning : undefined}
+            onNewBot9={startInning}
             onCatalog={() => {
               resetBattleState();
               setPhase("catalog");
@@ -859,7 +873,7 @@ function IntroScreen({
   daily: LegendaryAtBat;
   onPlayDaily: () => void;
   onOpenCatalog: () => void;
-  onInning: () => void;
+  onInning: (difficulty: Bot9Difficulty) => void;
   catalogSize: number;
 }) {
   return (
@@ -898,10 +912,12 @@ function IntroScreen({
             batter={{
               abbr: battingSideAbbr(daily),
               number: daily.batter.number,
+              name: daily.batter.name,
             }}
             pitcher={{
               abbr: pitchingSideAbbr(daily),
               number: daily.pitcher.number,
+              name: daily.pitcher.name,
             }}
           />
         </div>
@@ -926,14 +942,10 @@ function IntroScreen({
             {catalogSize}
           </span>
         </Button>
-        <Button
-          size="lg"
-          variant="secondary"
-          className="h-12 w-full text-base"
-          onClick={onInning}
-        >
-          Bottom of the 9th
-        </Button>
+        <Bot9DifficultyPicker
+          title="Bottom of the 9th Mode:"
+          onPick={onInning}
+        />
       </div>
     </section>
   );
@@ -959,7 +971,9 @@ function CatalogScreen({
         </Button>
       </div>
       <ul className="flex flex-1 flex-col gap-2 overflow-y-auto pb-4">
-        {LEGENDARY_AT_BATS.map((ab) => (
+        {[...LEGENDARY_AT_BATS]
+          .sort((a, b) => b.year - a.year || b.id.localeCompare(a.id))
+          .map((ab) => (
           <li key={ab.id}>
             <button
               type="button"
@@ -971,6 +985,7 @@ function CatalogScreen({
                   <p className="font-medium text-foreground">{ab.codename}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {ab.year} · {ab.series} · {ab.inning}
+                    {ab.batter.name ? ` · ${ab.batter.name}` : ""}
                   </p>
                 </div>
                 {ab.id === dailyId && (
@@ -987,11 +1002,53 @@ function CatalogScreen({
   );
 }
 
+const BOT9_DIFFICULTY_LABEL: Record<Bot9Difficulty, string> = {
+  easy: "Easy",
+  medium: "Medium",
+  hard: "Hard",
+};
+
+function Bot9DifficultyPicker({
+  title,
+  onPick,
+}: {
+  title: string;
+  onPick: (difficulty: Bot9Difficulty) => void;
+}) {
+  return (
+    <div className="rounded-lg bg-secondary px-3 py-3">
+      <p className="mb-2 text-center text-sm font-medium text-secondary-foreground">
+        {title}
+      </p>
+      <div className="grid grid-cols-3 gap-2">
+        {(
+          [
+            { id: "easy", label: "Easy" },
+            { id: "medium", label: "Medium" },
+            { id: "hard", label: "Hard" },
+          ] as const
+        ).map((opt) => (
+          <Button
+            key={opt.id}
+            size="lg"
+            variant="outline"
+            className="h-11 border-chalk/20 bg-background/40 text-sm font-semibold hover:bg-background/70"
+            onClick={() => onPick(opt.id)}
+          >
+            {opt.label}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SituationScreen({
   atBat,
   dateKey,
   count,
   playMode,
+  bot9Difficulty,
   onStart,
   onBack,
   onHowTo,
@@ -1000,6 +1057,7 @@ function SituationScreen({
   dateKey: string;
   count: CountState;
   playMode: PlayMode;
+  bot9Difficulty: Bot9Difficulty | null;
   onStart: () => void;
   onBack: () => void;
   onHowTo: () => void;
@@ -1008,7 +1066,9 @@ function SituationScreen({
     playMode === "daily"
       ? dateKey
       : playMode === "inning"
-        ? "Bot 9"
+        ? bot9Difficulty
+          ? `Bot 9 · ${BOT9_DIFFICULTY_LABEL[bot9Difficulty]}`
+          : "Bot 9"
         : "Practice";
 
   return (
@@ -1043,10 +1103,12 @@ function SituationScreen({
           batter={{
             abbr: battingSideAbbr(atBat),
             number: atBat.batter.number,
+            name: atBat.batter.name,
           }}
           pitcher={{
             abbr: pitchingSideAbbr(atBat),
             number: atBat.pitcher.number,
+            name: atBat.pitcher.name,
           }}
         />
 
@@ -1062,8 +1124,8 @@ function SituationScreen({
           {atBat.situationBlurb}
         </p>
         <p className="text-sm text-muted-foreground">
-          {atBat.batter.team} #{atBat.batter.number} ({atBat.batter.bats}) vs{" "}
-          {atBat.pitcher.team} #{atBat.pitcher.number} · {atBat.runners}
+          {playerIdentity(atBat.batter)} ({atBat.batter.bats}) vs{" "}
+          {playerIdentity(atBat.pitcher)} · {atBat.runners}
         </p>
       </div>
       <div className="grid gap-2">
@@ -1155,10 +1217,12 @@ function PitchScreen({
           batter={{
             abbr: battingSideAbbr(atBat),
             number: atBat.batter.number,
+            name: atBat.batter.name,
           }}
           pitcher={{
             abbr: pitchingSideAbbr(atBat),
             number: atBat.pitcher.number,
+            name: atBat.pitcher.name,
           }}
         />
         {/* Former batter line — non-BIP (and BIP) outcome sits above the zone, clear of Safari chrome */}
@@ -1307,12 +1371,14 @@ function ResultScreen({
   isInning,
   inningOver,
   walkedOff,
+  tiedExtras,
   inningLine,
   abLog,
   inningKind,
   onShare,
   onReplay,
   onContinueInning,
+  onNewBot9,
   onCatalog,
   onHome,
 }: {
@@ -1323,24 +1389,31 @@ function ResultScreen({
   isInning: boolean;
   inningOver: boolean;
   walkedOff: boolean;
+  tiedExtras: boolean;
   inningLine: string | null;
   abLog: AbLogEntry[] | null;
   inningKind: "bot9" | "rewrite" | null;
   onShare: () => void;
   onReplay: () => void;
   onContinueInning?: () => void;
+  onNewBot9: (difficulty: Bot9Difficulty) => void;
   onCatalog: () => void;
   onHome: () => void;
 }) {
-  const starsBlurb = isInning
-    ? inningOver
-      ? (inningLine ?? "Inning over")
-      : "Keep the line moving"
-    : session.stars >= 3
-      ? "Won the game"
-      : session.stars === 2
-        ? "Do your job"
-        : "Failed the moment";
+  // Bot 9 tie → extras always awards ★★☆.
+  const displayStars = tiedExtras ? 2 : session.stars;
+
+  const starsBlurb = tiedExtras
+    ? "Hopefully your team will come through in extras"
+    : isInning
+      ? inningOver
+        ? (inningLine ?? "Inning over")
+        : "Keep the line moving"
+      : displayStars >= 3
+        ? "Won the game"
+        : displayStars === 2
+          ? "Do your job"
+          : "Failed the moment";
 
   const inningHeadline = !isInning
     ? session.endingTitle
@@ -1348,9 +1421,11 @@ function ResultScreen({
       ? inningKind === "rewrite"
         ? "History rewritten"
         : "Walk-off!"
-      : inningOver
-        ? "Ballgame"
-        : session.endingTitle;
+      : tiedExtras
+        ? "You tied it"
+        : inningOver
+          ? "Ballgame"
+          : session.endingTitle;
 
   return (
     <section className="anim-rise flex min-h-[85dvh] flex-col gap-6 py-4">
@@ -1375,15 +1450,15 @@ function ResultScreen({
           {playResultLabel(session.finalPlay)}
           {session.runsScored > 0 ? ` · ${session.runsScored} R` : ""}
         </p>
-        {isInning && inningLine && (
+        {isInning && inningLine && !tiedExtras && (
           <p className="text-xs text-muted-foreground">{inningLine}</p>
         )}
       </div>
 
       <div className="rounded-md bg-secondary/50 p-5 text-center">
         <p className="font-[family-name:var(--font-display)] text-5xl text-primary">
-          {"★".repeat(session.stars)}
-          {"☆".repeat(3 - session.stars)}
+          {"★".repeat(displayStars)}
+          {"☆".repeat(3 - displayStars)}
         </p>
         <p className="mt-2 text-sm font-medium text-foreground">
           {pending ? "Finalizing…" : starsBlurb}
@@ -1460,13 +1535,18 @@ function ResultScreen({
       )}
 
       <div className="mt-auto grid gap-2">
-        {isInning && onContinueInning ? (
+        {isInning && inningOver ? (
+          <Bot9DifficultyPicker
+            title={
+              inningKind === "rewrite"
+                ? "Bottom of the 9th Mode:"
+                : "New Bottom of the 9th:"
+            }
+            onPick={onNewBot9}
+          />
+        ) : isInning && onContinueInning ? (
           <Button size="lg" className="h-12" onClick={onContinueInning}>
-            {inningOver
-              ? inningKind === "rewrite"
-                ? "Bottom of the 9th"
-                : "New Bottom 9"
-              : "Next batter"}
+            Next batter
           </Button>
         ) : (
           <Button size="lg" className="h-12" onClick={onShare}>
