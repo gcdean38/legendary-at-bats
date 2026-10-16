@@ -123,7 +123,41 @@ export function applyBaserunning(
     return { bases: { first, second, third }, runs, outsRecorded: 0 };
   }
 
-  if (play === "single" || play === "walk") {
+  // Walk: only forced runners advance. A run scores only with bases loaded.
+  if (play === "walk") {
+    if (first && second && third) {
+      return {
+        bases: { first: true, second: true, third: true },
+        runs: 1,
+        outsRecorded: 0,
+      };
+    }
+    if (first && second) {
+      // 1st+2nd → force everyone up; 3rd stays empty→occupied
+      return {
+        bases: { first: true, second: true, third: true },
+        runs: 0,
+        outsRecorded: 0,
+      };
+    }
+    if (first) {
+      // Force R1 to 2nd; R2/R3 (if any) are not forced and hold
+      return {
+        bases: { first: true, second: true, third },
+        runs: 0,
+        outsRecorded: 0,
+      };
+    }
+    // 1st open — nobody is forced; batter takes 1st, trailers hold
+    return {
+      bases: { first: true, second, third },
+      runs: 0,
+      outsRecorded: 0,
+    };
+  }
+
+  // Single: trailers move up a base; R3 scores (simplified station-to-station).
+  if (play === "single") {
     if (third) runs += 1;
     third = second;
     second = first;
