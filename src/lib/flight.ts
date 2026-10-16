@@ -124,6 +124,49 @@ export function ballScaleAt(progress: number): number {
   return 0.28 + p * p * 0.85;
 }
 
+/**
+ * Seam spin for the inbound baseball — orientation + tumble that
+ * telegraphs break direction (catcher's eye).
+ *
+ * `axisTiltDeg` sets the spin plane (0 ≈ 12–6 tumble, ~70 ≈ sidewheel).
+ * `side` mirrors glove-side vs arm-side break. `spinDeg` is how far
+ * the seams have rotated by this frame of the flight.
+ */
+export type BallSeamStyle = {
+  spinDeg: number;
+  axisTiltDeg: number;
+  side: 1 | -1;
+};
+
+export function ballSeamStyle(
+  progress: number,
+  pitchType: PitchType,
+): BallSeamStyle {
+  const p = clamp01(progress);
+  // Ease spin up a touch late so early tunnel stays readable, then the
+  // seams really start talking as the pitch commits.
+  const spinT = p * p * (3 - 2 * p);
+  switch (pitchType) {
+    case "SL":
+      // Sidewheel / bullet look — glove-side sweep
+      return { spinDeg: spinT * 560, axisTiltDeg: 78, side: -1 };
+    case "CT":
+      return { spinDeg: spinT * 500, axisTiltDeg: 58, side: -1 };
+    case "CU":
+      // Near 12–6 topspin (opposite tumble of a four-seamer)
+      return { spinDeg: -spinT * 480, axisTiltDeg: 10, side: 1 };
+    case "SI":
+      // Arm-side run — tilted backspin
+      return { spinDeg: spinT * 420, axisTiltDeg: 38, side: 1 };
+    case "CH":
+      return { spinDeg: spinT * 300, axisTiltDeg: 20, side: 1 };
+    case "FF":
+    default:
+      // Four-seam backspin — mostly upright tumble
+      return { spinDeg: spinT * 580, axisTiltDeg: 14, side: 1 };
+  }
+}
+
 export type ExitVisual = {
   x: number;
   y: number;

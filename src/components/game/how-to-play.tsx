@@ -46,7 +46,9 @@ export function HowToPlayOverlay({ onDismiss }: Props) {
             <span>
               Your click is the{" "}
               <strong className="text-chalk">barrel sweet spot</strong>. Aim
-              where the ball will be — handedness shapes the barrel reach.
+              where the ball will be — watch the{" "}
+              <strong className="text-chalk">seams</strong> for break direction;
+              handedness shapes the barrel reach.
             </span>
           </li>
           <li className="flex gap-3">
