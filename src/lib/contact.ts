@@ -161,14 +161,21 @@ export function estimateContact(opts: {
   const euclid = dist(aim, pitchLoc);
 
   // y grows downward: aim below the ball (higher y) = undercut = fly
-  const vertical = clamp((aim.y - pitchLoc.y) / 0.18, -1, 1);
+  // aim above the ball (lower y) = on the top half = topped / mishit
+  const dy = aim.y - pitchLoc.y;
+  const vertical = clamp(dy / 0.18, -1, 1);
   const proximity = reach.proximity;
   let quality = clamp(proximity * 0.55 + tFactor * 0.45, 0, 1);
   let { launchDeg, band } = launchFromVertical(vertical);
 
-  // Click center inside the ball disc = flush barrel — elevate quality
+  // Top half of the ball (bat above center) — never a barrel HR
+  const onTopHalf = dy < -0.01;
+  // True flush: click in the ball, timed, and at/under the equator
   const flush =
-    euclid <= BALL_RADIUS && reach.onBat && tFactor >= 0.4;
+    euclid <= BALL_RADIUS &&
+    reach.onBat &&
+    tFactor >= 0.4 &&
+    !onTopHalf;
   if (flush) {
     quality = Math.max(quality, 0.97);
   }
@@ -202,9 +209,22 @@ export function estimateContact(opts: {
     };
   }
 
-  // Flush in the ball (not topped) → home run. Square/line contact gets
-  // enough loft for the label to match the crush.
-  if (flush && band !== "ground") {
+  // Top-of-ball contact → lazy fly out (not a HR, even if "in the disc")
+  if (onTopHalf) {
+    const popLaunch = Math.max(32, launchDeg < 8 ? 36 : launchDeg);
+    return pack(
+      "fly_out",
+      "line",
+      vertical,
+      Math.min(quality, 0.72),
+      popLaunch,
+      exitVeloFromQuality(Math.min(quality, 0.72)),
+    );
+  }
+
+  // Homers ONLY on true flush (in the ball, at/under center) — not from
+  // launch-angle thresholds alone.
+  if (flush) {
     const hrLaunch = Math.max(launchDeg, 30);
     exitVeloMph = Math.max(exitVeloMph, exitVeloFromQuality(1));
     return pack("home_run", "crush", vertical, quality, hrLaunch, exitVeloMph);
@@ -212,9 +232,6 @@ export function estimateContact(opts: {
 
   // ---- Flies ----
   if (band === "fly") {
-    if (quality >= 0.94 && launchDeg >= 28) {
-      return pack("home_run", "crush", vertical, quality, launchDeg, exitVeloMph);
-    }
     if (bases.third && outs < 2 && quality >= 0.5 && quality < 0.94) {
       return pack("sac_fly", "line", vertical, quality, launchDeg, exitVeloMph);
     }
@@ -363,7 +380,8 @@ export const CONTACT_OUTCOME_GUIDE = {
   whiff: "quality < 0.22 (or big miss + bad timing)",
   foul: "quality < 0.42",
   flush_hr:
-    "click center inside the ball disc (≤ BALL_RADIUS) with timing ≥ 0.4 and not topped → home run",
+    "click inside the ball disc, at/under center (not top half), timing ≥ 0.4 → home run (only HR path)",
+  top_half: "aim above ball center → fly out (never HR)",
   ground: {
     band: "launch ≤ 5° (bat over the ball / topped)",
     single: "quality ≥ 0.90",
