@@ -13,16 +13,9 @@ import { playResultLabel } from "@/lib/contact";
 import {
   MAX_PITCHES_PER_AB,
   applyPitchEvent,
-  eventLabel,
-  formatScoreLine,
   pitchAtCursor,
 } from "@/lib/count";
-import {
-  finalizeSession,
-  gradePitch,
-  outcomeLabel,
-  pitchTypeLabel,
-} from "@/lib/scoring";
+import { finalizeSession, gradePitch, pitchTypeLabel } from "@/lib/scoring";
 import type {
   AtBatEndReason,
   AtBatSessionResult,
@@ -32,7 +25,6 @@ import type {
   PitchResultGrade,
   ZoneCoord,
 } from "@/lib/types";
-import { isInStrikeZone } from "@/lib/zone";
 import { cn } from "@/lib/utils";
 
 const EXIT_MS = 1200;
@@ -60,7 +52,7 @@ export function DailyGame() {
   const [howToOpen, setHowToOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const flightStart = useRef(0);
-  const flightMsRef = useRef(1200);
+  const flightMsRef = useRef(1020);
   const rafRef = useRef<number | null>(null);
   const decidedRef = useRef(false);
   const gradesRef = useRef<PitchResultGrade[]>([]);
@@ -206,7 +198,7 @@ export function DailyGame() {
     resetBattleState();
     setAtBat(next);
     setIsDaily(daily);
-    setDateKey(daily ? utcDateKey(new Date()) : `practice · ${next.id}`);
+    setDateKey(daily ? utcDateKey(new Date()) : next.codename);
     setPhase("situation");
     if (!howToSeenRef.current) {
       howToSeenRef.current = true;
@@ -225,7 +217,7 @@ export function DailyGame() {
     const pitch = atBat
       ? pitchAtCursor(atBat.pitches, cursorRef.current)
       : null;
-    flightMsRef.current = pitch ? flightMsForPitch(pitch.type) : 1200;
+    flightMsRef.current = pitch ? flightMsForPitch(pitch.type) : 1020;
     setPhase("pitch_live");
     startFlightLoop();
   }
@@ -359,6 +351,7 @@ export function DailyGame() {
       stars: session.stars,
       verdict: session.historyVerdict,
       endingTitle: session.endingTitle,
+      isDaily,
     });
     try {
       if (navigator.clipboard?.writeText) {
@@ -367,7 +360,7 @@ export function DailyGame() {
         window.setTimeout(() => setCopied(false), 2000);
       }
     } catch {
-      setError("Could not copy share text. Select and copy manually.");
+      setError("Could not copy share text.");
     }
   }
 
@@ -538,16 +531,11 @@ function IntroScreen({
           <br />
           <span className="text-primary">At Bats</span>
         </h1>
-        <p className="mx-auto max-w-md text-base leading-relaxed text-muted-foreground sm:text-lg">
-          Watch the pitch. Swing where it’s going — or hold off to take. Work
-          the count, then see if you matched the legend or changed history.
+        <p className="mx-auto max-w-sm text-sm text-muted-foreground sm:text-base">
+          Step into legendary moments. Swing or take — work the count.
         </p>
-        <p className="text-sm text-muted-foreground">
-          Today:{" "}
-          <span className="text-foreground">
-            {daily.codename} · {daily.venue} · {daily.away.abbr}{" "}
-            {daily.away.runs}–{daily.home.abbr} {daily.home.runs}
-          </span>
+        <p className="text-sm text-foreground">
+          Today · {daily.codename}
         </p>
       </div>
 
@@ -591,9 +579,6 @@ function CatalogScreen({
           Back
         </Button>
       </div>
-      <p className="text-sm text-muted-foreground">
-        Open any legendary AB for testing — same rules as the daily.
-      </p>
       <ul className="flex flex-1 flex-col gap-2 overflow-y-auto pb-4">
         {LEGENDARY_AT_BATS.map((ab) => (
           <li key={ab.id}>
@@ -606,12 +591,7 @@ function CatalogScreen({
                 <div>
                   <p className="font-medium text-foreground">{ab.codename}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {ab.year} · {ab.series} · {ab.gameLabel} · {ab.inning} ·{" "}
-                    {ab.venue}
-                  </p>
-                  <p className="mt-1 text-xs text-flood">
-                    {formatScoreLine(ab.away, ab.home)} · {ab.runners} · {ab.outs}{" "}
-                    out
+                    {ab.year} · {ab.series} · {ab.inning}
                   </p>
                 </div>
                 {ab.id === dailyId && (
@@ -678,51 +658,29 @@ function SituationScreen({
 
         <div>
           <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-            {atBat.year} · {atBat.series} · {atBat.gameLabel} · {atBat.venue}
+            {atBat.year} · {atBat.series} · {atBat.venue}
           </p>
           <h2 className="mt-2 font-[family-name:var(--font-display)] text-4xl tracking-wide text-chalk sm:text-5xl">
             {atBat.codename}
           </h2>
         </div>
-        <p className="text-base leading-relaxed text-foreground/90">
+        <p className="text-sm leading-relaxed text-foreground/90">
           {atBat.situationBlurb}
         </p>
-        <dl className="grid grid-cols-2 gap-3 text-sm">
-          <Stat label="Runners" value={atBat.runners} />
-          <Stat label="Score" value={formatScoreLine(atBat.away, atBat.home)} />
-          <Stat
-            label="Batter"
-            value={`${atBat.batter.team} #${atBat.batter.number} (${atBat.batter.bats})`}
-          />
-          <Stat
-            label="Pitcher"
-            value={`${atBat.pitcher.team} #${atBat.pitcher.number} (${atBat.pitcher.throws})`}
-          />
-        </dl>
-        <p className="border-l-2 border-primary/70 pl-3 text-sm text-muted-foreground">
-          {atBat.stakes}
+        <p className="text-sm text-muted-foreground">
+          {atBat.batter.team} #{atBat.batter.number} ({atBat.batter.bats}) vs{" "}
+          {atBat.pitcher.team} #{atBat.pitcher.number} · {atBat.runners}
         </p>
       </div>
       <div className="grid gap-2">
         <Button size="lg" className="h-12 w-full font-semibold" onClick={onStart}>
-          Step in · 0–0 count
+          Step in
         </Button>
         <Button variant="ghost" onClick={onBack}>
           Back
         </Button>
       </div>
     </section>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md bg-secondary/60 px-3 py-2">
-      <dt className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-        {label}
-      </dt>
-      <dd className="mt-0.5 font-medium text-foreground">{value}</dd>
-    </div>
   );
 }
 
@@ -790,14 +748,14 @@ function PitchScreen({
         />
         <div className="flex items-center justify-between gap-2">
           <p className="text-sm text-muted-foreground">
-            {atBat.batter.team} #{atBat.batter.number} · {pitch.speedMph} mph
+            {atBat.batter.team} #{atBat.batter.number}
           </p>
           <Badge
             variant="outline"
             className="rounded-md border-flood/50 text-flood"
             title={batsHint}
           >
-            Bats {atBat.batter.bats} · {batsLabel}
+            {batsLabel}
           </Badge>
         </div>
       </header>
@@ -841,35 +799,22 @@ function PitchScreen({
 
       <div className="mt-4 flex-1 space-y-4">
         {windup && (
-          <div className="space-y-2 text-center">
-            <p className="text-xs uppercase tracking-[0.25em] text-flood">
-              Get set · {batsLabel}
-            </p>
-            <p className="text-sm text-muted-foreground">{batsHint}</p>
-          </div>
+          <p className="text-center text-xs uppercase tracking-[0.25em] text-flood">
+            Get set
+          </p>
         )}
 
         {live && (
-          <div className="space-y-3">
-            <div className="text-center">
-              <p className="text-xs uppercase tracking-[0.25em] text-flood">
-                {count.balls}–{count.strikes} · pitch on the way
-              </p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Click the barrel sweet spot ({batsLabel}) · hold off to take
-              </p>
-            </div>
-          </div>
+          <p className="text-center text-xs uppercase tracking-[0.25em] text-flood">
+            {count.balls}–{count.strikes}
+          </p>
         )}
 
         {phase === "pitch_result" && lastGrade && (
-          <div className="space-y-3 rounded-md bg-secondary/50 p-4">
-            <p className="text-center text-sm italic text-foreground/90">
-              “{pitch.approachCue}”
-            </p>
+          <div className="rounded-md bg-secondary/50 p-4 text-center">
             <p
               className={cn(
-                "font-[family-name:var(--font-display)] text-2xl tracking-wide",
+                "font-[family-name:var(--font-display)] text-3xl tracking-wide",
                 lastGrade.event === "out"
                   ? "text-destructive"
                   : lastGrade.event === "hit"
@@ -878,47 +823,12 @@ function PitchScreen({
               )}
             >
               {playResultLabel(lastGrade.play)}
-              <span className="text-muted-foreground">
-                {" "}
-                · {exitLabel(lastGrade.play)}
-                {lastGrade.launchDeg != null &&
-                  lastGrade.swung &&
-                  lastGrade.play !== "whiff" &&
-                  lastGrade.play !== "foul" &&
-                  ` · ~${lastGrade.launchDeg}°`}
-                {" · "}
-                {pitchTypeLabel(pitch.type)}
-                {" · "}
-                {isInStrikeZone(pitch.location) ? "in zone" : "out of zone"}
-              </span>
             </p>
-            <ul className="space-y-1 text-sm text-muted-foreground">
-              <li>
-                Decision:{" "}
-                <span
-                  className={cn(
-                    lastGrade.decisionCorrect ? "text-flood" : "text-destructive",
-                  )}
-                >
-                  {lastGrade.decision}
-                  {lastGrade.decisionCorrect
-                    ? " ✓"
-                    : lastGrade.swung
-                      ? " · chased a ball"
-                      : " · strike looking"}
-                </span>
-              </li>
-              {lastGrade.swung && lastGrade.contactQuality != null && (
-                <li>
-                  Contact quality {(lastGrade.contactQuality * 100).toFixed(0)}%
-                  {lastGrade.exitVeloMph != null &&
-                    ` · ~${lastGrade.exitVeloMph} mph`}
-                  {lastGrade.aimDistance != null &&
-                    ` · miss ${lastGrade.aimDistance.toFixed(2)}`}
-                </li>
-              )}
-              <li className="text-xs">{eventLabel(lastGrade.event)}</li>
-            </ul>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {exitLabel(lastGrade.play)}
+              {" · "}
+              {pitchTypeLabel(pitch.type)}
+            </p>
           </div>
         )}
       </div>
@@ -945,14 +855,6 @@ function ResultScreen({
   onCatalog: () => void;
   onHome: () => void;
 }) {
-  const shareText = formatShareSummary({
-    dateKey: session.dateKey,
-    codename: atBat.codename,
-    stars: session.stars,
-    verdict: session.historyVerdict,
-    endingTitle: session.endingTitle,
-  });
-
   const starsBlurb =
     session.stars >= 3
       ? "Won the game"
@@ -972,24 +874,15 @@ function ResultScreen({
       />
 
       <div className="space-y-2 text-center">
-        <p className="font-[family-name:var(--font-display)] text-2xl tracking-wide text-primary">
-          Legendary At Bats
-        </p>
         <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-          {session.dateKey} · {atBat.codename}
+          {atBat.codename}
         </p>
         <h2 className="font-[family-name:var(--font-display)] text-5xl tracking-wide text-chalk">
           {session.endingTitle}
         </h2>
-        <p className="mx-auto max-w-md text-sm text-muted-foreground">
-          {session.endingBlurb}
-        </p>
-        <p className="text-xs text-flood">
+        <p className="text-sm text-flood">
           {playResultLabel(session.finalPlay)}
-          {session.runsScored > 0 ? ` · ${session.runsScored} run(s)` : ""} · AB
-          count {session.finalCount.balls}–{session.finalCount.strikes} ·{" "}
-          {session.grades.length} pitch
-          {session.grades.length === 1 ? "" : "es"}
+          {session.runsScored > 0 ? ` · ${session.runsScored} R` : ""}
         </p>
       </div>
 
@@ -1003,55 +896,9 @@ function ResultScreen({
         </p>
       </div>
 
-      <div className="space-y-2 rounded-md border border-border/80 bg-background/40 p-4">
-        <p className="text-xs uppercase tracking-[0.22em] text-flood">
-          What actually happened
-        </p>
-        <p className="font-medium text-foreground">
-          {outcomeLabel(atBat.historical.outcome)}
-          {atBat.historical.batterSucceeded
-            ? " · Batter came through"
-            : " · Batter failed"}
-        </p>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {atBat.historical.summary}
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-          Pitch log
-        </p>
-        <ul className="space-y-2">
-          {session.grades.map((g, i) => (
-            <li
-              key={g.pitchId}
-              className="flex items-center justify-between rounded-md bg-secondary/40 px-3 py-2 text-sm"
-            >
-              <span>
-                P{i + 1} · {playResultLabel(g.play)}
-                {g.launchDeg != null &&
-                g.swung &&
-                g.play !== "whiff" &&
-                g.play !== "foul"
-                  ? ` · ~${g.launchDeg}°`
-                  : ""}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {g.decisionCorrect ? "read ✓" : "miss"}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <pre className="overflow-x-auto rounded-md bg-muted/40 p-3 text-left text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap">
-        {shareText}
-      </pre>
-
       <div className="mt-auto grid gap-2">
         <Button size="lg" className="h-12" onClick={onShare}>
-          {copied ? "Copied!" : "Copy share summary"}
+          {copied ? "Copied!" : "Copy result"}
         </Button>
         <div className="grid gap-2 sm:grid-cols-3">
           <Button size="lg" variant="secondary" className="h-11" onClick={onReplay}>

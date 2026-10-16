@@ -30,19 +30,18 @@ export function pitchFamily(type: PitchType): PitchFamily {
 }
 
 /** Baseline flight window for breaking stuff — FF faster, CH slower. */
-export const FLIGHT_MS_BREAKING = 1200;
+export const FLIGHT_MS_BREAKING = 1020;
 
 /**
  * How long the pitch takes to reach the plate (ms).
  * Fastballs quicker, changeups slower, breaking in between.
- * Ticked ~15% faster than the first playtest pass.
  */
 export function flightMsForPitch(type: PitchType): number {
   switch (pitchFamily(type)) {
     case "fastball":
-      return 1000;
+      return 850;
     case "offspeed":
-      return 1420;
+      return 1200;
     case "breaking":
     default:
       return FLIGHT_MS_BREAKING;

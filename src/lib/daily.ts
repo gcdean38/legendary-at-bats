@@ -48,14 +48,16 @@ export function formatShareSummary(opts: {
   stars: number;
   verdict: HistoryVerdict;
   endingTitle?: string;
+  isDaily?: boolean;
 }): string {
   const starLine = "★".repeat(opts.stars) + "☆".repeat(3 - opts.stars);
+  const header = opts.isDaily
+    ? `Legendary At Bats — ${opts.dateKey}`
+    : "Legendary At Bats";
   return [
-    `Legendary At Bats — ${opts.dateKey}`,
-    `${opts.codename}`,
+    header,
+    opts.codename,
     starLine,
     opts.endingTitle ?? VERDICT_SHARE[opts.verdict],
-    VERDICT_SHARE[opts.verdict],
-    "Play today’s at-bat.",
   ].join("\n");
 }
