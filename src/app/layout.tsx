@@ -19,20 +19,30 @@ const body = Manrope({
 const siteDescription =
   "Daily challenge: step into legendary MLB playoff at-bats. Recognize the pitch, decide take or swing, aim the zone — and try to change history.";
 
+/** Prefix for static assets — matches next.config basePath on Pages builds. */
+const assetBase =
+  process.env.GITHUB_PAGES === "true" ? "/legendary-at-bats" : "";
+
 export const metadata: Metadata = {
   metadataBase: new URL(SHARE_GAME_URL),
   title: "Legendary At Bats",
   description: siteDescription,
   applicationName: "Legendary At Bats",
-  // Paths must be relative to metadataBase (no leading "/"). A root-absolute
-  // "/icon.png" ignores the /legendary-at-bats basePath on GitHub Pages and 404s.
   icons: {
+    // Root-absolute under assetBase so localhost and GitHub Pages both resolve.
+    // Prefer PNG first — clearer in tabs than a tiny ICO.
     icon: [
-      { url: "favicon.ico", sizes: "any" },
-      { url: "icon.png", type: "image/png", sizes: "512x512" },
+      {
+        url: `${assetBase}/icon.png`,
+        type: "image/png",
+        sizes: "512x512",
+      },
+      { url: `${assetBase}/favicon.ico`, sizes: "any" },
     ],
-    shortcut: ["favicon.ico"],
-    apple: [{ url: "apple-touch-icon.png", sizes: "180x180" }],
+    shortcut: [`${assetBase}/favicon.ico`],
+    apple: [
+      { url: `${assetBase}/apple-touch-icon.png`, sizes: "180x180" },
+    ],
   },
   openGraph: {
     type: "website",
