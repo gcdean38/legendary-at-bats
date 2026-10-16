@@ -27,7 +27,7 @@ import {
 } from "@/lib/scoring";
 import {
   advanceInning,
-  atBatFromInning,
+  dealNextAtBat,
   createInning,
   createRewriteInning,
   inningSummary,
@@ -325,17 +325,20 @@ export function DailyGame() {
   function startInning(difficulty: Bot9Difficulty = "medium") {
     clearInningPopTimer();
     setInningPop(null);
-    const state = createInning(difficulty);
-    inningRef.current = state;
-    setInningSnap(state);
-    selectAtBat(atBatFromInning(state), "inning");
+    const dealt = dealNextAtBat(createInning(difficulty));
+    inningRef.current = dealt.state;
+    setInningSnap(dealt.state);
+    selectAtBat(dealt.atBat, "inning");
   }
 
   /** Next batter in an active Bottom 9 / rewrite rally. */
   function continueInning() {
     const state = inningRef.current;
     if (!state || isInningOver(state)) return;
-    selectAtBat(atBatFromInning(state), "inning", { skipSituation: true });
+    const dealt = dealNextAtBat(state);
+    inningRef.current = dealt.state;
+    setInningSnap(dealt.state);
+    selectAtBat(dealt.atBat, "inning", { skipSituation: true });
   }
 
   function beginPitch() {
@@ -535,10 +538,10 @@ export function DailyGame() {
 
   function acceptRewriteContinue() {
     if (!atBat || !session) return;
-    const state = createRewriteInning(atBat, session);
-    inningRef.current = state;
-    setInningSnap(state);
-    selectAtBat(atBatFromInning(state), "inning", { skipSituation: true });
+    const dealt = dealNextAtBat(createRewriteInning(atBat, session));
+    inningRef.current = dealt.state;
+    setInningSnap(dealt.state);
+    selectAtBat(dealt.atBat, "inning", { skipSituation: true });
   }
 
   function declineRewriteContinue() {

@@ -2,6 +2,10 @@ import { GENERIC_ARSENAL, generateOpeningSequence, arsenalFromPitches } from "@/
 import { MAX_PITCHES_PER_AB } from "@/lib/count";
 import { playResultLabel } from "@/lib/contact";
 import {
+  REWRITE_LINEUPS,
+  type RewriteBatter,
+} from "@/data/rewrite-lineups";
+import {
   batterIsHome,
   parseInning,
   runnersLabel,
@@ -35,13 +39,32 @@ export type InningState = {
   battingHome: boolean;
   /** Deficit at rally start (0 = tied) */
   startDeficit: number;
-  pitcher: { team: string; number: number; throws: "L" | "R" };
+  pitcher: {
+    name?: string;
+    team: string;
+    number: number;
+    throws: "L" | "R";
+  };
+  /** Batting franchise nickname (or city for Bot 9) */
+  battingTeam: string;
+  /** Pitching franchise nickname (or city for Bot 9) */
+  pitchingTeam: string;
+  /** Series context carried into generated follow-up ABs */
+  year: number;
+  series: string;
+  gameLabel: string;
+  venue: string;
   batterIndex: number;
   runsThisInning: number;
   kind: "bot9" | "rewrite";
   /** Pitch templates for arsenal draws (legendary mix on rewrite) */
   arsenalTemplates: SeedPitch[];
   sourceCodename?: string;
+  /**
+   * Queued teammates for rewrite (and future Bot 9 pools).
+   * Consumed one PA at a time in atBatFromInning.
+   */
+  lineupQueue: RewriteBatter[];
   /** Bot 9 flavor — real playoff matchup seeding */
   bot9?: {
     year: number;
@@ -309,10 +332,17 @@ export function createInning(
       number: 1 + Math.floor(rng() * 99),
       throws,
     },
+    battingTeam: scenario.homeCity,
+    pitchingTeam: scenario.awayCity,
+    year: scenario.year,
+    series: scenario.series,
+    gameLabel: scenario.gameLabel,
+    venue: scenario.venue,
     batterIndex: 1,
     runsThisInning: 0,
     kind: "bot9",
     arsenalTemplates: generateOpeningSequence(GENERIC_ARSENAL, 6, rng),
+    lineupQueue: [],
     bot9: {
       year: scenario.year,
       series: scenario.series,
@@ -343,6 +373,12 @@ export function createRewriteInning(
     line: abLogLine(session.finalPlay, session.runsScored),
   };
 
+  // Skip anyone who already had the legendary PA.
+  const followUps = (REWRITE_LINEUPS[atBat.id] ?? []).filter(
+    (b) =>
+      b.name !== atBat.batter.name && b.number !== atBat.batter.number,
+  );
+
   return {
     half,
     inningNumber: number,
@@ -353,6 +389,12 @@ export function createRewriteInning(
     battingHome,
     startDeficit: battingDeficit(atBat),
     pitcher: { ...atBat.pitcher },
+    battingTeam: atBat.batter.team,
+    pitchingTeam: atBat.pitcher.team,
+    year: atBat.year,
+    series: atBat.series,
+    gameLabel: atBat.gameLabel,
+    venue: atBat.venue,
     batterIndex: 2,
     runsThisInning: session.runsScored,
     kind: "rewrite",
@@ -362,6 +404,7 @@ export function createRewriteInning(
       return generateOpeningSequence(mix.length > 0 ? mix : GENERIC_ARSENAL, 6);
     })(),
     sourceCodename: atBat.codename,
+    lineupQueue: followUps.map((b) => ({ ...b })),
     abLog: [first],
   };
 }
@@ -385,13 +428,42 @@ function deficitCopy(
   };
 }
 
-/** Next plate appearance — fresh arsenal throws (random locations). */
-export function atBatFromInning(
+/**
+ * Consume the next scripted teammate (or a franchise placeholder) and
+ * return the updated inning state + the plate appearance to play.
+ */
+export function dealNextAtBat(
   state: InningState,
   rng: () => number = Math.random,
+): { state: InningState; atBat: LegendaryAtBat } {
+  const queued = state.lineupQueue[0];
+  const lineupQueue = queued ? state.lineupQueue.slice(1) : state.lineupQueue;
+  const batter = queued
+    ? {
+        name: queued.name,
+        team: state.battingTeam,
+        number: queued.number,
+        bats: queued.bats,
+      }
+    : {
+        team: state.battingTeam,
+        number: 1 + Math.floor(rng() * 99),
+        bats: BAT_HANDS[Math.floor(rng() * BAT_HANDS.length)]!,
+      };
+  const nextState = { ...state, lineupQueue };
+  return { state: nextState, atBat: buildAtBatFromInning(nextState, batter, rng) };
+}
+
+function buildAtBatFromInning(
+  state: InningState,
+  batter: {
+    name?: string;
+    team: string;
+    number: number;
+    bats: "L" | "R" | "S";
+  },
+  rng: () => number,
 ): LegendaryAtBat {
-  const bats = BAT_HANDS[Math.floor(rng() * BAT_HANDS.length)]!;
-  const batterNum = 1 + Math.floor(rng() * 99);
   const runners = runnersLabel(state.bases);
   const deficit = state.battingHome
     ? Math.max(0, state.away.runs - state.home.runs)
@@ -400,19 +472,21 @@ export function atBatFromInning(
     state.half === "bottom"
       ? `Bottom ${state.inningNumber}`
       : `Top ${state.inningNumber}`;
-  const batterTeam = state.battingHome
-    ? (state.bot9?.homeCity ?? "Home")
-    : (state.bot9?.awayCity ?? "Away");
-  const pitcherTeam = state.bot9?.awayCity ?? state.pitcher.team;
   const isLeadOff = state.abLog.length === 0;
 
+  const who = batter.name ?? `${batter.team} #${batter.number}`;
   const copy =
     isLeadOff && state.kind === "bot9"
       ? deficitCopy(state.startDeficit, state.bot9)
       : {
-          blurb: `${label}, ${state.outs} out${state.outs === 1 ? "" : "s"}, ${runners.toLowerCase()}. Still ${
-            deficit === 0 ? "tied" : `down ${deficit}`
-          }.`,
+          blurb:
+            state.kind === "rewrite"
+              ? `${who} steps in. ${label}, ${state.outs} out${state.outs === 1 ? "" : "s"}, ${runners.toLowerCase()}. Still ${
+                  deficit === 0 ? "tied" : `down ${deficit}`
+                }.`
+              : `${label}, ${state.outs} out${state.outs === 1 ? "" : "s"}, ${runners.toLowerCase()}. Still ${
+                  deficit === 0 ? "tied" : `down ${deficit}`
+                }.`,
           stakes:
             deficit === 0
               ? "One run takes the lead."
@@ -436,22 +510,26 @@ export function atBatFromInning(
   return {
     id: `${state.kind}-${state.inningNumber}-${state.half}-b${state.batterIndex}`,
     codename,
-    year: state.bot9?.year ?? 2026,
+    year: state.year,
     series:
       state.kind === "rewrite"
         ? "Rewrite history"
-        : (state.bot9?.series ?? "Bottom of the 9th"),
-    gameLabel: state.bot9?.gameLabel ?? `Batter ${state.batterIndex}`,
+        : state.series,
+    gameLabel:
+      state.kind === "rewrite"
+        ? batter.name ?? `Batter ${state.batterIndex}`
+        : state.gameLabel,
     inning: label,
-    venue: state.bot9?.venue ?? "Practice Field",
+    venue: state.venue,
     outs: state.outs,
     away: state.away,
     home: state.home,
     bases: { ...state.bases },
     runners,
-    batter: { team: batterTeam, number: batterNum, bats },
+    batter,
     pitcher: {
-      team: pitcherTeam,
+      name: state.pitcher.name,
+      team: state.pitchingTeam,
       number: state.pitcher.number,
       throws: state.pitcher.throws,
     },
