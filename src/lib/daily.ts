@@ -41,6 +41,14 @@ function hashString(input: string): number {
 }
 
 /**
+ * Optional pinned dailies by Eastern YYYY-MM-DD.
+ * Unlisted days fall through to the hash rotation.
+ */
+const DAILY_OVERRIDES: Record<string, string> = {
+  "2026-10-16": "2001-ws7-arizona-20", // Luis Gonzalez walk-off single
+};
+
+/**
  * Deterministic daily pick so every player gets the same at-bat
  * on the same US Eastern calendar day.
  */
@@ -54,8 +62,15 @@ export function getDailyAtBat(date: Date): {
     throw new Error("No legendary at-bats seeded.");
   }
   const dateKey = easternDateKey(date);
+  const overrideId = DAILY_OVERRIDES[dateKey];
+  if (overrideId) {
+    const index = list.findIndex((ab) => ab.id === overrideId);
+    if (index >= 0) {
+      return { atBat: list[index]!, dateKey, index };
+    }
+  }
   const index = hashString(`legendary-at-bats:${dateKey}`) % list.length;
-  return { atBat: list[index], dateKey, index };
+  return { atBat: list[index]!, dateKey, index };
 }
 
 export function formatShareSummary(opts: {
