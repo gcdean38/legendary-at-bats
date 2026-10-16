@@ -66,6 +66,8 @@ export function DailyGame() {
   const cursorRef = useRef(0);
   const pendingEndRef = useRef<AtBatEndReason | null>(null);
   const continueTimerRef = useRef<number | null>(null);
+  const postResultDelayRef = useRef<number | null>(null);
+  const countdownActionRef = useRef<"begin" | "advance">("begin");
 
   const currentPitch =
     atBat && atBat.pitches.length > 0
@@ -92,38 +94,31 @@ export function DailyGame() {
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       if (continueTimerRef.current) window.clearInterval(continueTimerRef.current);
+      if (postResultDelayRef.current) window.clearTimeout(postResultDelayRef.current);
     };
   }, []);
 
-  // 3–2–1 grow/fade: windup, between pitches, and after the terminating pitch.
+  // First-pitch / next-pitch windup: 3–2–1 immediately.
   useEffect(() => {
-    const afterAnyPitch = phase === "pitch_result" && !!lastGrade;
-    const firstOrNextWindup = phase === "pitch_windup";
-    if (!afterAnyPitch && !firstOrNextWindup) {
-      cancelContinueTimer();
+    if (phase !== "pitch_windup") {
       return;
     }
-    const beats = Math.max(1, Math.round(BETWEEN_PITCH_MS / 1000));
-    let beat = beats;
-    setContinueInSec(beat);
-    continueTimerRef.current = window.setInterval(() => {
-      beat -= 1;
-      if (beat <= 0) {
-        cancelContinueTimer();
-        if (firstOrNextWindup) beginPitch();
-        else advanceAfterFeedback();
-      } else {
-        setContinueInSec(beat);
-      }
-    }, 1000);
+    startBetweenPitchCountdown("begin");
     return () => cancelContinueTimer();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, abEnding, lastGrade, pitchCursor]);
+  }, [phase, pitchCursor]);
 
   function cancelFlight() {
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
+    }
+  }
+
+  function cancelPostResultDelay() {
+    if (postResultDelayRef.current) {
+      window.clearTimeout(postResultDelayRef.current);
+      postResultDelayRef.current = null;
     }
   }
 
@@ -133,6 +128,25 @@ export function DailyGame() {
       continueTimerRef.current = null;
     }
     setContinueInSec(null);
+  }
+
+  /** 3–2–1 only — call after exit anim finishes (or after a take hold). */
+  function startBetweenPitchCountdown(action: "begin" | "advance") {
+    cancelContinueTimer();
+    countdownActionRef.current = action;
+    const beats = Math.max(1, Math.round(BETWEEN_PITCH_MS / 1000));
+    let beat = beats;
+    setContinueInSec(beat);
+    continueTimerRef.current = window.setInterval(() => {
+      beat -= 1;
+      if (beat <= 0) {
+        cancelContinueTimer();
+        if (countdownActionRef.current === "begin") beginPitch();
+        else advanceAfterFeedback();
+      } else {
+        setContinueInSec(beat);
+      }
+    }, 1000);
   }
 
   function startFlightLoop() {
@@ -149,21 +163,26 @@ export function DailyGame() {
     rafRef.current = requestAnimationFrame(tick);
   }
 
-  function startExitLoop() {
+  function startExitLoop(onDone?: () => void) {
     cancelFlight();
     const start = performance.now();
     setExitProgress(0.01);
     const tick = (now: number) => {
       const p = Math.min(1, (now - start) / EXIT_MS);
       setExitProgress(p);
-      if (p < 1) rafRef.current = requestAnimationFrame(tick);
-      else rafRef.current = null;
+      if (p < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        rafRef.current = null;
+        onDone?.();
+      }
     };
     rafRef.current = requestAnimationFrame(tick);
   }
 
   function resetBattleState() {
     cancelContinueTimer();
+    cancelPostResultDelay();
     decidedRef.current = false;
     gradesRef.current = [];
     countRef.current = { balls: 0, strikes: 0 };
@@ -240,12 +259,18 @@ export function DailyGame() {
 
     setBallProgress(1);
     setPhase("pitch_result");
-    if (grade.swung && grade.play !== "foul") {
-      startExitLoop();
-    } else if (grade.swung && grade.play === "foul") {
-      startExitLoop();
+    // Don't start 3–2–1 until the play animation has finished.
+    cancelContinueTimer();
+    cancelPostResultDelay();
+    if (grade.swung) {
+      startExitLoop(() => startBetweenPitchCountdown("advance"));
     } else {
+      // Takes: short hold so the call is readable, then countdown
       setExitProgress(0);
+      postResultDelayRef.current = window.setTimeout(() => {
+        postResultDelayRef.current = null;
+        startBetweenPitchCountdown("advance");
+      }, 600);
     }
   }
 
@@ -304,6 +329,7 @@ export function DailyGame() {
   function advanceAfterFeedback() {
     if (!atBat || !lastGrade) return;
     cancelContinueTimer();
+    cancelPostResultDelay();
     cancelFlight();
     if (pendingEndRef.current) {
       endAtBat(pendingEndRef.current, countRef.current);
