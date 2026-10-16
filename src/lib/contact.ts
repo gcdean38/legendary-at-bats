@@ -170,7 +170,7 @@ export function estimateContact(opts: {
       ? Math.round(clamp(28 + quality * 12, 28, 45))
       : flushHr
         ? 32
-        : inBallMid
+        : inBallDouble || inBallMid
           ? Math.round(clamp(18 + quality * 8, 14, 28))
           : Math.round(clamp(10 + quality * 12, 8, 24));
 
@@ -243,14 +243,14 @@ export function estimateContact(opts: {
   }
 
   // ---- Midline ----
-  // True barrel (in-ball + solid timing) → home run
+  // True barrel (in-ball + solid timing + proximity ≥ 0.8) → home run
   if (flushHr) {
     exitVeloMph = Math.max(exitVeloMph, exitVeloFromQuality(1));
     return pack("home_run", "crush", vertical, quality, launchDeg, exitVeloMph);
   }
 
-  // In-ball but early/late → gap double (not a moonshot)
-  if (inBallMid) {
+  // In-ball, proximity 0.72–0.79 (or mistimed barrel) → gap double
+  if (inBallDouble || inBallMid) {
     exitVeloMph = Math.max(exitVeloMph, exitVeloFromQuality(0.92));
     return pack("double", "crush", vertical, quality, launchDeg, exitVeloMph);
   }
@@ -387,7 +387,7 @@ export const CONTACT_OUTCOME_GUIDE = {
   },
   midline: {
     flush_hr:
-      "in-ball on midline + timing ≥ 0.62 + proximity ≥ 0.72 → home run",
+      "in-ball on midline + timing ≥ 0.62 + proximity ≥ 0.85 → home run",
     in_ball_double: "in-ball on midline but not a true barrel → gap double",
     double: "else quality ≥ 0.68 → gap double",
     single: "else quality ≥ 0.52 → single",
