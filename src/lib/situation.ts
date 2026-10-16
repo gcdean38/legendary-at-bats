@@ -36,7 +36,7 @@ export function batterIsHome(atBat: LegendaryAtBat): boolean {
   const home = atBat.home.abbr.toLowerCase();
   const map: Record<string, string[]> = {
     tor: ["toronto"],
-    tex: ["texas", "arlington"],
+    tex: ["texas"],
     ari: ["arizona"],
     lad: ["los angeles"],
     hou: ["houston"],
@@ -44,12 +44,27 @@ export function batterIsHome(atBat: LegendaryAtBat): boolean {
     cle: ["cleveland"],
     phi: ["philadelphia"],
     nyy: ["new york"],
+    nym: ["new york"],
     sea: ["seattle"],
     bal: ["baltimore"],
     stl: ["st. louis", "st louis"],
     tb: ["tampa bay", "st. petersburg"],
     wsh: ["washington"],
     chc: ["chicago"],
+    cws: ["chicago"],
+    mil: ["milwaukee"],
+    det: ["detroit"],
+    fla: ["florida", "miami"],
+    mia: ["miami", "florida"],
+    atl: ["atlanta"],
+    sf: ["san francisco"],
+    ana: ["anaheim", "los angeles"],
+    laa: ["anaheim", "los angeles"],
+    min: ["minnesota"],
+    oak: ["oakland"],
+    kc: ["kansas city"],
+    sd: ["san diego"],
+    col: ["colorado"],
   };
   const aliases = map[home] ?? [];
   if (aliases.some((a) => team.includes(a))) return true;
