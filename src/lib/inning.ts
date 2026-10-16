@@ -2,6 +2,12 @@ import { GENERIC_ARSENAL, generateOpeningSequence, arsenalFromPitches } from "@/
 import { MAX_PITCHES_PER_AB } from "@/lib/count";
 import { playResultLabel } from "@/lib/contact";
 import {
+  BOT9_DEFICIT,
+  BOT9_MAX_BATTERS,
+  BOT9_SCENARIOS,
+  type Bot9Difficulty,
+} from "@/data/bot9-scenarios";
+import {
   REWRITE_LINEUPS,
   type RewriteBatter,
 } from "@/data/rewrite-lineups";
@@ -18,6 +24,9 @@ import type {
   ScoreSide,
   SeedPitch,
 } from "@/lib/types";
+
+export type { Bot9Difficulty };
+export { BOT9_DEFICIT, BOT9_MAX_BATTERS, BOT9_SCENARIOS };
 
 export type AbLogEntry = {
   batterIndex: number;
@@ -77,6 +86,8 @@ export type InningState = {
     awayCity: string;
     difficulty: Bot9Difficulty;
   };
+  /** Cap on named Bot 9 batters (7 / 8 / 9 by deficit) */
+  maxBatters?: number;
   abLog: AbLogEntry[];
 };
 
@@ -183,148 +194,19 @@ export function shouldOfferRewriteContinue(
   }
 }
 
-/** Bot 9 difficulty — fixed deficit (no random hole). */
-export type Bot9Difficulty = "easy" | "medium" | "hard";
-
-export const BOT9_DEFICIT: Record<Bot9Difficulty, 1 | 2 | 3> = {
-  easy: 1,
-  medium: 2,
-  hard: 3,
-};
-
-/**
- * Real playoff Bot 9 seeds (home batting, empty bases for the mode).
- * Three per deficit — createInning picks one at random.
- */
-export type Bot9Scenario = {
-  year: number;
-  series: string;
-  gameLabel: string;
-  venue: string;
-  awayCity: string;
-  homeCity: string;
-  away: ScoreSide;
-  home: ScoreSide;
-};
-
-export const BOT9_SCENARIOS: Record<Bot9Difficulty, Bot9Scenario[]> = {
-  // Down 1
-  easy: [
-    {
-      year: 1993,
-      series: "World Series",
-      gameLabel: "Game 6",
-      venue: "Rogers Centre",
-      awayCity: "Philadelphia",
-      homeCity: "Toronto",
-      away: { abbr: "PHI", runs: 6 },
-      home: { abbr: "TOR", runs: 5 },
-    },
-    {
-      year: 2001,
-      series: "World Series",
-      gameLabel: "Game 7",
-      venue: "Bank One Ballpark",
-      awayCity: "New York",
-      homeCity: "Arizona",
-      away: { abbr: "NYY", runs: 2 },
-      home: { abbr: "ARI", runs: 1 },
-    },
-    {
-      year: 1979,
-      series: "ALCS",
-      gameLabel: "Game 3",
-      venue: "Angel Stadium",
-      awayCity: "Baltimore",
-      homeCity: "Anaheim",
-      away: { abbr: "BAL", runs: 3 },
-      home: { abbr: "ANA", runs: 2 },
-    },
-  ],
-  // Down 2
-  medium: [
-    {
-      year: 2011,
-      series: "World Series",
-      gameLabel: "Game 6",
-      venue: "Busch Stadium",
-      awayCity: "Texas",
-      homeCity: "St. Louis",
-      away: { abbr: "TEX", runs: 7 },
-      home: { abbr: "STL", runs: 5 },
-    },
-    {
-      year: 1992,
-      series: "NLCS",
-      gameLabel: "Game 7",
-      venue: "Atlanta-Fulton County Stadium",
-      awayCity: "Pittsburgh",
-      homeCity: "Atlanta",
-      away: { abbr: "PIT", runs: 2 },
-      home: { abbr: "ATL", runs: 0 },
-    },
-    {
-      year: 2023,
-      series: "ALCS",
-      gameLabel: "Game 5",
-      venue: "Minute Maid Park",
-      awayCity: "Texas",
-      homeCity: "Houston",
-      away: { abbr: "TEX", runs: 4 },
-      home: { abbr: "HOU", runs: 2 },
-    },
-  ],
-  // Down 3 — rare Bot 9 holes; seeded from real playoff series pressure
-  hard: [
-    {
-      // 2016 NLDS G4: Cubs climbed out of a 3+ run 9th-inning hole (road that night).
-      // Mode puts you in that hole batting last at Wrigley Field.
-      year: 2016,
-      series: "NLDS",
-      gameLabel: "Game 4",
-      venue: "Wrigley Field",
-      awayCity: "San Francisco",
-      homeCity: "Chicago",
-      away: { abbr: "SF", runs: 5 },
-      home: { abbr: "CHC", runs: 2 },
-    },
-    {
-      // 2004 ALCS pressure at Fenway — Sox often dug out of late deficits that October.
-      year: 2004,
-      series: "ALCS",
-      gameLabel: "Game 5",
-      venue: "Fenway Park",
-      awayCity: "New York",
-      homeCity: "Boston",
-      away: { abbr: "NYY", runs: 6 },
-      home: { abbr: "BOS", runs: 3 },
-    },
-    {
-      // 2019 World Series — Astros faced heavy late deficits at Minute Maid Park.
-      year: 2019,
-      series: "World Series",
-      gameLabel: "Game 2",
-      venue: "Minute Maid Park",
-      awayCity: "Washington",
-      homeCity: "Houston",
-      away: { abbr: "WSH", runs: 7 },
-      home: { abbr: "HOU", runs: 4 },
-    },
-  ],
-};
-
 /**
  * Bottom of the 9th: home batting, empty bases, 0 outs.
- * Deficit + teams come from a real playoff seed for that difficulty.
+ * Deficit, closer, arsenal, and sized lineup come from a real playoff seed.
  */
 export function createInning(
   difficulty: Bot9Difficulty = "medium",
   rng: () => number = Math.random,
 ): InningState {
   const startDeficit = BOT9_DEFICIT[difficulty];
+  const maxBatters = BOT9_MAX_BATTERS[difficulty];
   const pool = BOT9_SCENARIOS[difficulty];
   const scenario = pool[Math.floor(rng() * pool.length)]!;
-  const throws: "L" | "R" = rng() < 0.28 ? "L" : "R";
+  const lineup = scenario.lineup.slice(0, maxBatters);
 
   return {
     half: "bottom",
@@ -336,12 +218,13 @@ export function createInning(
     battingHome: true,
     startDeficit,
     pitcher: {
-      team: scenario.awayCity,
-      number: 1 + Math.floor(rng() * 99),
-      throws,
+      name: scenario.pitcher.name,
+      team: scenario.awayTeam,
+      number: scenario.pitcher.number,
+      throws: scenario.pitcher.throws,
     },
-    battingTeam: scenario.homeCity,
-    pitchingTeam: scenario.awayCity,
+    battingTeam: scenario.homeTeam,
+    pitchingTeam: scenario.awayTeam,
     year: scenario.year,
     series: scenario.series,
     gameLabel: scenario.gameLabel,
@@ -349,15 +232,16 @@ export function createInning(
     batterIndex: 1,
     runsThisInning: 0,
     kind: "bot9",
-    arsenalTemplates: generateOpeningSequence(GENERIC_ARSENAL, 6, rng),
-    lineupQueue: [],
+    arsenalTemplates: generateOpeningSequence(scenario.pitcher.arsenal, 6, rng),
+    lineupQueue: lineup.map((b) => ({ ...b })),
+    maxBatters,
     bot9: {
       year: scenario.year,
       series: scenario.series,
       gameLabel: scenario.gameLabel,
       venue: scenario.venue,
-      homeCity: scenario.homeCity,
-      awayCity: scenario.awayCity,
+      homeCity: scenario.homeTeam,
+      awayCity: scenario.awayTeam,
       difficulty,
     },
     abLog: [],
