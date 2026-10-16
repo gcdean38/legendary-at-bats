@@ -64,6 +64,8 @@ const EXIT_MS = 1200;
 const LATE_TAKE_GRACE_MS = 450;
 /** Auto-advance between pitches (3–2–1 grow/fade; not on AB end). */
 const BETWEEN_PITCH_MS = 3000;
+/** Bot 9 mid-inning: show outcome pop, then next batter. */
+const INNING_POP_MS = 1500;
 
 export function DailyGame() {
   const [phase, setPhase] = useState<GamePhase>("loading");
@@ -74,6 +76,10 @@ export function DailyGame() {
   const isDaily = playMode === "daily";
   const isInning = playMode === "inning";
   const [inningSnap, setInningSnap] = useState<InningState | null>(null);
+  const [inningPop, setInningPop] = useState<{
+    line: string;
+    sub: string;
+  } | null>(null);
   const [pitchCursor, setPitchCursor] = useState(0);
   const [count, setCount] = useState<CountState>({ balls: 0, strikes: 0 });
   const [grades, setGrades] = useState<PitchResultGrade[]>([]);
@@ -100,6 +106,7 @@ export function DailyGame() {
   const howToSeenRef = useRef(false);
   /** Live inning state while playMode === "inning". */
   const inningRef = useRef<InningState | null>(null);
+  const inningPopTimerRef = useRef<number | null>(null);
 
   const currentPitch =
     atBat && atBat.pitches.length > 0
@@ -127,8 +134,16 @@ export function DailyGame() {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       if (continueTimerRef.current) window.clearInterval(continueTimerRef.current);
       if (postResultDelayRef.current) window.clearTimeout(postResultDelayRef.current);
+      if (inningPopTimerRef.current) window.clearTimeout(inningPopTimerRef.current);
     };
   }, []);
+
+  function clearInningPopTimer() {
+    if (inningPopTimerRef.current) {
+      window.clearTimeout(inningPopTimerRef.current);
+      inningPopTimerRef.current = null;
+    }
+  }
 
   // 3–2–1 lives on the front of a pitch (windup), never after a play.
   useEffect(() => {
@@ -249,6 +264,8 @@ export function DailyGame() {
 
   /** Fresh bottom of the 9th — down 0–3, empty bases. */
   function startInning() {
+    clearInningPopTimer();
+    setInningPop(null);
     const state = createInning();
     inningRef.current = state;
     setInningSnap(state);
@@ -379,12 +396,31 @@ export function DailyGame() {
         endReason: reason,
         finalCount,
       });
+      setSession(final);
+
       if (inningRef.current) {
         const next = advanceInning(inningRef.current, final);
         inningRef.current = next;
         setInningSnap(next);
+
+        const line = `${playResultLabel(final.finalPlay)}${
+          final.runsScored > 0 ? ` · ${final.runsScored} R` : ""
+        }`;
+
+        // Mid-inning: bug pop → auto next batter (skip full result screen)
+        if (!isInningOver(next)) {
+          clearInningPopTimer();
+          setInningPop({ line, sub: final.endingTitle });
+          inningPopTimerRef.current = window.setTimeout(() => {
+            inningPopTimerRef.current = null;
+            setInningPop(null);
+            continueInning();
+          }, INNING_POP_MS);
+          return;
+        }
       }
-      setSession(final);
+
+      setInningPop(null);
       setPhase("result");
     });
   }
@@ -433,6 +469,8 @@ export function DailyGame() {
   function goHome() {
     cancelFlight();
     resetBattleState();
+    clearInningPopTimer();
+    setInningPop(null);
     inningRef.current = null;
     setInningSnap(null);
     try {
@@ -457,6 +495,23 @@ export function DailyGame() {
 
       {howToOpen && (
         <HowToPlayOverlay onDismiss={() => setHowToOpen(false)} />
+      )}
+
+      {inningPop && (
+        <div
+          className="pointer-events-none fixed inset-x-0 top-[4.5rem] z-40 flex justify-center px-4"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="anim-rise w-full max-w-lg rounded-md border border-flood/40 bg-card/95 px-4 py-3 shadow-[0_8px_28px_oklch(0.1_0.02_155/0.55)] backdrop-blur-sm">
+            <p className="font-[family-name:var(--font-display)] text-2xl tracking-wide text-flood">
+              {inningPop.line}
+            </p>
+            <p className="mt-0.5 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              {inningPop.sub}
+            </p>
+          </div>
+        </div>
       )}
 
       <main className="relative z-10 mx-auto flex w-full max-w-lg flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
