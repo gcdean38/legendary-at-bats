@@ -15,7 +15,7 @@ export type ContactEstimate = {
   quality: number;
   /**
    * Launch angle in degrees — always consistent with the play band:
-   * ground ≤ 8°, line 10–24°, fly ≥ 25°.
+   * ground ≤ 5°, line 8–24°, fly ≥ 25°.
    */
   launchDeg: number;
   /** Stylized exit velocity (mph) from contact quality — not Statcast. */
@@ -46,17 +46,19 @@ function timingFactor(elapsedMs: number, windowMs: number) {
 
 /**
  * Map bat vertical mishit (-1…+1) → launch angle with bands that match
- * how we classify plays (so you never see a 14° “ground out”).
+ * how we classify plays (so you never see an 8° “ground out”).
  */
 function launchFromVertical(vertical: number): {
   launchDeg: number;
   band: "ground" | "line" | "fly";
 } {
+  // Bands match real BIP taxonomy so you never see e.g. 8° labeled a grounder:
+  // ground ≤ 5°, line 8–24°, fly ≥ 25°.
   if (vertical < -0.1) {
-    // Map vertical -1…-0.1 → launch -20°…8°
+    // Map vertical -1…-0.1 → launch -20°…5°
     const t = (vertical + 1) / 0.9;
     return {
-      launchDeg: Math.round(-20 + clamp(t, 0, 1) * 28),
+      launchDeg: Math.round(-20 + clamp(t, 0, 1) * 25),
       band: "ground",
     };
   }
@@ -68,10 +70,10 @@ function launchFromVertical(vertical: number): {
       band: "fly",
     };
   }
-  // Map vertical -0.1…0.1 → launch 10°…24°
+  // Map vertical -0.1…0.1 → launch 8°…24°
   const t = (vertical + 0.1) / 0.2;
   return {
-    launchDeg: Math.round(10 + clamp(t, 0, 1) * 14),
+    launchDeg: Math.round(8 + clamp(t, 0, 1) * 16),
     band: "line",
   };
 }
@@ -339,13 +341,13 @@ export const CONTACT_OUTCOME_GUIDE = {
   whiff: "quality < 0.22 (or big miss + bad timing)",
   foul: "quality < 0.42",
   ground: {
-    band: "launch ≤ 8° (bat under the ball / topped)",
+    band: "launch ≤ 5° (bat over the ball / topped)",
     single: "quality ≥ 0.90",
     double_play: "else if runner on 1st and outs < 2",
     ground_out: "else",
   },
   line: {
-    band: "launch 10–24°",
+    band: "launch 8–24°",
     double: "quality ≥ 0.93",
     single: "quality ≥ 0.86",
     line_out: "else",

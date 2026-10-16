@@ -25,8 +25,12 @@ type Props = {
   exitProgress?: number;
   play?: PlayResult | null;
   contactPoint?: ZoneCoord;
-  /** Hide plate exit overlay when a separate field view is showing */
+  /** Hide plate exit overlay (unused when field camera is off) */
   suppressExitOverlay?: boolean;
+  /** Spray cues for exit path (inside-out / timing) */
+  sprayAim?: ZoneCoord;
+  sprayTimingMs?: number;
+  sprayWindowMs?: number;
   /** Fill a parent frame (PitchCanvas) instead of owning aspect ratio */
   fill?: boolean;
   hideCaption?: boolean;
@@ -48,6 +52,9 @@ export function StrikeZone({
   play = null,
   contactPoint,
   suppressExitOverlay = false,
+  sprayAim,
+  sprayTimingMs,
+  sprayWindowMs,
   fill = false,
   hideCaption = false,
   onAim,
@@ -116,13 +123,18 @@ export function StrikeZone({
     exitProgress > 0 &&
     (contactPoint || aim || target);
   const exitFrom = contactPoint ?? aim ?? target;
+  const sprayOpts = {
+    aim: sprayAim ?? aim,
+    timingMs: sprayTimingMs,
+    windowMs: sprayWindowMs,
+  };
   const exitVis =
     showingExit && play
-      ? exitVisualAt(exitProgress, exitFrom, play, bats)
+      ? exitVisualAt(exitProgress, exitFrom, play, bats, sprayOpts)
       : null;
   const exitTrack =
     showingExit && play
-      ? exitTrackSamples(exitFrom, play, exitProgress, 18, bats)
+      ? exitTrackSamples(exitFrom, play, exitProgress, 18, bats, sprayOpts)
       : [];
 
   const settledAtPlate =
