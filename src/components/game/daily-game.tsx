@@ -7,7 +7,7 @@ import { HowToPlayOverlay } from "@/components/game/how-to-play";
 import { PitchCanvas } from "@/components/game/pitch-canvas";
 import { ScoreBug } from "@/components/game/score-bug";
 import { LEGENDARY_AT_BATS } from "@/data/legendary-at-bats";
-import { getDailyAtBat, formatShareSummary, utcDateKey } from "@/lib/daily";
+import { getDailyAtBat, formatShareSummary, easternDateKey } from "@/lib/daily";
 import { exitLabel, flightMsForPitch } from "@/lib/flight";
 import { playResultLabel } from "@/lib/contact";
 import {
@@ -274,7 +274,7 @@ export function DailyGame() {
     resetBattleState();
     setAtBat(next);
     setPlayMode(mode);
-    setDateKey(mode === "daily" ? utcDateKey(new Date()) : next.codename);
+    setDateKey(mode === "daily" ? easternDateKey(new Date()) : next.codename);
     lockPitchForCursor(next, 0);
     setPhase(opts?.skipSituation ? "pitch_windup" : "situation");
     if (!howToSeenRef.current) {
@@ -757,7 +757,7 @@ function IntroScreen({
     <section className="flex min-h-[85dvh] flex-col justify-between gap-10 py-4">
       <div className="anim-rise space-y-6 pt-8 text-center sm:pt-14">
         <p className="text-xs uppercase tracking-[0.35em] text-flood/90">
-          Daily challenge · {dateKey} UTC
+          Daily challenge · {dateKey} ET
         </p>
         <h1 className="font-[family-name:var(--font-display)] text-6xl leading-[0.9] tracking-wide text-chalk sm:text-7xl">
           Legendary
