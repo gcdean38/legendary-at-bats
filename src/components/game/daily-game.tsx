@@ -7,7 +7,7 @@ import { HowToPlayOverlay } from "@/components/game/how-to-play";
 import { PitchCanvas } from "@/components/game/pitch-canvas";
 import { ScoreBug } from "@/components/game/score-bug";
 import { LEGENDARY_AT_BATS } from "@/data/legendary-at-bats";
-import { getDailyAtBat, formatShareSummary, utcDateKey } from "@/lib/daily";
+import { getDailyAtBat, formatShareSummary, easternDateKey } from "@/lib/daily";
 import { exitLabel, flightMsForPitch } from "@/lib/flight";
 import { playResultLabel } from "@/lib/contact";
 import {
@@ -33,7 +33,11 @@ import {
   type AbLogEntry,
   type InningState,
 } from "@/lib/inning";
-import { runnersLabel } from "@/lib/situation";
+import {
+  battingSideAbbr,
+  pitchingSideAbbr,
+  runnersLabel,
+} from "@/lib/situation";
 import type {
   AtBatEndReason,
   AtBatSessionResult,
@@ -42,12 +46,28 @@ import type {
   LegendaryAtBat,
   PitchEvent,
   PitchResultGrade,
+  PlayResult,
   SeedPitch,
   ZoneCoord,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type PlayMode = "daily" | "practice" | "inning";
+
+/** Count / take / foul / K — no ball-in-play flight (stay on the plate UI). */
+function isNonBipPlay(play: PlayResult): boolean {
+  switch (play) {
+    case "foul":
+    case "ball":
+    case "strike_looking":
+    case "whiff":
+    case "walk":
+    case "strikeout":
+      return true;
+    default:
+      return false;
+  }
+}
 
 /** Strike = red, ball = green, ball-in-play = blue */
 function pitchSequenceColor(event: PitchEvent): string {
@@ -274,7 +294,7 @@ export function DailyGame() {
     resetBattleState();
     setAtBat(next);
     setPlayMode(mode);
-    setDateKey(mode === "daily" ? utcDateKey(new Date()) : next.codename);
+    setDateKey(mode === "daily" ? easternDateKey(new Date()) : next.codename);
     lockPitchForCursor(next, 0);
     setPhase(opts?.skipSituation ? "pitch_windup" : "situation");
     if (!howToSeenRef.current) {
@@ -757,7 +777,7 @@ function IntroScreen({
     <section className="flex min-h-[85dvh] flex-col justify-between gap-10 py-4">
       <div className="anim-rise space-y-6 pt-8 text-center sm:pt-14">
         <p className="text-xs uppercase tracking-[0.35em] text-flood/90">
-          Daily challenge · {dateKey} UTC
+          Daily challenge · {dateKey} ET
         </p>
         <h1 className="font-[family-name:var(--font-display)] text-6xl leading-[0.9] tracking-wide text-chalk sm:text-7xl">
           Legendary
@@ -905,6 +925,14 @@ function SituationScreen({
           outs={atBat.outs}
           count={count}
           bases={atBat.bases}
+          batter={{
+            abbr: battingSideAbbr(atBat),
+            number: atBat.batter.number,
+          }}
+          pitcher={{
+            abbr: pitchingSideAbbr(atBat),
+            number: atBat.pitcher.number,
+          }}
         />
 
         <div>
@@ -976,6 +1004,10 @@ function PitchScreen({
     atBat.batter.bats === "L"
       ? "Click = barrel sweet spot · tip points left"
       : "Click = barrel sweet spot · tip points right";
+  // After pitch flight ends (phase pitch_result), before next windup clears lastGrade.
+  const showOutcome = phase === "pitch_result" && lastGrade != null;
+  const outcomeIsNonBip =
+    lastGrade != null && isNonBipPlay(lastGrade.play);
 
   return (
     <section className="anim-rise flex min-h-[85dvh] flex-col gap-4 py-2">
@@ -996,14 +1028,53 @@ function PitchScreen({
           outs={atBat.outs}
           count={count}
           bases={atBat.bases}
+          batter={{
+            abbr: battingSideAbbr(atBat),
+            number: atBat.batter.number,
+          }}
+          pitcher={{
+            abbr: pitchingSideAbbr(atBat),
+            number: atBat.pitcher.number,
+          }}
         />
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm text-muted-foreground">
-            {atBat.batter.team} #{atBat.batter.number}
-          </p>
+        {/* Former batter line — non-BIP (and BIP) outcome sits above the zone, clear of Safari chrome */}
+        <div className="flex min-h-9 items-center justify-between gap-2">
+          <div className="min-w-0 flex-1" aria-live="polite" aria-atomic="true">
+            {showOutcome && lastGrade ? (
+              <>
+                <p
+                  className={cn(
+                    "font-[family-name:var(--font-display)] text-xl tracking-wide sm:text-2xl",
+                    lastGrade.event === "out"
+                      ? "text-destructive"
+                      : lastGrade.event === "hit"
+                        ? "text-flood"
+                        : "text-primary",
+                  )}
+                >
+                  {playResultLabel(lastGrade.play).toUpperCase()}
+                </p>
+                {!outcomeIsNonBip && (
+                  <p className="truncate text-xs text-muted-foreground">
+                    {exitLabel(lastGrade.play)}
+                    {" · "}
+                    {pitchTypeLabel(pitch.type)}
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground/80">
+                {windup
+                  ? "Get set"
+                  : live
+                    ? `${count.balls}–${count.strikes}`
+                    : "\u00a0"}
+              </p>
+            )}
+          </div>
           <Badge
             variant="outline"
-            className="rounded-md border-flood/50 text-flood"
+            className="shrink-0 rounded-md border-flood/50 text-flood"
             title={batsHint}
           >
             {batsLabel}
@@ -1046,42 +1117,6 @@ function PitchScreen({
               </div>
             )}
         </PitchCanvas>
-      </div>
-
-      <div className="mt-4 flex-1 space-y-4">
-        {windup && (
-          <p className="text-center text-xs uppercase tracking-[0.25em] text-flood">
-            Get set
-          </p>
-        )}
-
-        {live && (
-          <p className="text-center text-xs uppercase tracking-[0.25em] text-flood">
-            {count.balls}–{count.strikes}
-          </p>
-        )}
-
-        {phase === "pitch_result" && lastGrade && (
-          <div className="rounded-md bg-secondary/50 p-4 text-center">
-            <p
-              className={cn(
-                "font-[family-name:var(--font-display)] text-3xl tracking-wide",
-                lastGrade.event === "out"
-                  ? "text-destructive"
-                  : lastGrade.event === "hit"
-                    ? "text-flood"
-                    : "text-primary",
-              )}
-            >
-              {playResultLabel(lastGrade.play)}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {exitLabel(lastGrade.play)}
-              {" · "}
-              {pitchTypeLabel(pitch.type)}
-            </p>
-          </div>
-        )}
       </div>
     </section>
   );

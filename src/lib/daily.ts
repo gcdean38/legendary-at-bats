@@ -1,12 +1,30 @@
 import { LEGENDARY_AT_BATS } from "@/data/legendary-at-bats";
 import type { HistoryVerdict, LegendaryAtBat } from "@/lib/types";
 
-/** UTC calendar date as YYYY-MM-DD */
-export function utcDateKey(date: Date): string {
-  const y = date.getUTCFullYear();
-  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(date.getUTCDate()).padStart(2, "0");
+/**
+ * US Eastern calendar date as YYYY-MM-DD.
+ * Daily challenge uses America/New_York so every player gets the same
+ * Eastern day regardless of UTC or local browser timezone.
+ */
+export function easternDateKey(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const y = parts.find((p) => p.type === "year")?.value;
+  const m = parts.find((p) => p.type === "month")?.value;
+  const d = parts.find((p) => p.type === "day")?.value;
+  if (!y || !m || !d) {
+    throw new Error("Could not format Eastern calendar date.");
+  }
   return `${y}-${m}-${d}`;
+}
+
+/** @deprecated Use easternDateKey — kept as an alias for call sites. */
+export function utcDateKey(date: Date): string {
+  return easternDateKey(date);
 }
 
 function hashString(input: string): number {
@@ -19,7 +37,8 @@ function hashString(input: string): number {
 }
 
 /**
- * Deterministic daily pick so every player gets the same at-bat in UTC.
+ * Deterministic daily pick so every player gets the same at-bat
+ * on the same US Eastern calendar day.
  */
 export function getDailyAtBat(date: Date): {
   atBat: LegendaryAtBat;
@@ -30,7 +49,7 @@ export function getDailyAtBat(date: Date): {
   if (list.length === 0) {
     throw new Error("No legendary at-bats seeded.");
   }
-  const dateKey = utcDateKey(date);
+  const dateKey = easternDateKey(date);
   const index = hashString(`legendary-at-bats:${dateKey}`) % list.length;
   return { atBat: list[index], dateKey, index };
 }

@@ -64,6 +64,11 @@ function BaseDiamond({ bases }: { bases: BasesState }) {
   );
 }
 
+type IdentityLine = {
+  abbr: string;
+  number: number;
+};
+
 type Props = {
   away: ScoreSide;
   home: ScoreSide;
@@ -71,6 +76,9 @@ type Props = {
   outs: number;
   count: CountState;
   bases: BasesState;
+  /** Live-plate identity: location abbr + jersey # */
+  batter?: IdentityLine;
+  pitcher?: IdentityLine;
   className?: string;
 };
 
@@ -81,15 +89,27 @@ export function ScoreBug({
   outs,
   count,
   bases,
+  batter,
+  pitcher,
   className,
 }: Props) {
+  const identity =
+    batter || pitcher
+      ? [
+          batter ? `${batter.abbr} Batter: #${batter.number}` : null,
+          pitcher ? `${pitcher.abbr} Pitcher: #${pitcher.number}` : null,
+        ]
+          .filter(Boolean)
+          .join(". ")
+      : null;
+
   return (
     <div
       className={cn(
         "overflow-hidden rounded-md border border-chalk/20 bg-background/75 shadow-[0_8px_30px_oklch(0_0_0/0.35)] backdrop-blur-sm",
         className,
       )}
-      aria-label={`Score ${away.abbr} ${away.runs}, ${home.abbr} ${home.runs}. Count ${count.balls}-${count.strikes}, ${outs} out.`}
+      aria-label={`Score ${away.abbr} ${away.runs}, ${home.abbr} ${home.runs}. Count ${count.balls}-${count.strikes}, ${outs} out.${identity ? ` ${identity}.` : ""}`}
     >
       <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-3 px-3 py-2">
         <div className="space-y-1">
@@ -124,6 +144,27 @@ export function ScoreBug({
           </div>
         </div>
       </div>
+
+      {(batter || pitcher) && (
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 border-t border-chalk/15 px-3 py-1.5 text-[11px] leading-tight text-muted-foreground">
+          {batter && (
+            <p>
+              <span className="font-semibold tracking-wide text-chalk">
+                {batter.abbr}
+              </span>{" "}
+              Batter: #{batter.number}
+            </p>
+          )}
+          {pitcher && (
+            <p>
+              <span className="font-semibold tracking-wide text-chalk">
+                {pitcher.abbr}
+              </span>{" "}
+              Pitcher: #{pitcher.number}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
