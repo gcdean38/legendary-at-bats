@@ -2,7 +2,7 @@ import type { LegendaryAtBat } from "@/lib/types";
 
 /**
  * Curated legendary playoff/clutch at-bats (~2000–2025), target ~36.
- * Titles are "Home City vs Away City". Venue is [City] [Ballpark Noun].
+ * Titles are "Home City vs Away City". Venues use real ballpark names.
  * Player names + franchise nicknames (no logos).
  * Pitch sequences are stylized for gameplay; after the script, later pitches
  * are drawn from that pitcher's arsenal with fresh locations.
@@ -15,7 +15,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "ALCS",
     gameLabel: "Game 7",
     inning: "Bottom 7",
-    venue: "Toronto Centre",
+    venue: "Rogers Centre",
     outs: 1,
     away: { abbr: "SEA", runs: 3 },
     home: { abbr: "TOR", runs: 1 },
@@ -24,7 +24,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "George Springer", team: "Blue Jays", number: 4, bats: "R" },
     pitcher: { name: "Eduard Bazardo", team: "Mariners", number: 58, throws: "R" },
     situationBlurb:
-      "Down two in a winner-take-all ALCS Game 7 at Toronto Centre. Runners in scoring position. You are George Springer.",
+      "Down two in a winner-take-all ALCS Game 7 at Rogers Centre. Runners in scoring position. You are George Springer.",
     stakes: "A swing here can flip the series and send Toronto to the World Series.",
     pitches: [
       {
@@ -68,7 +68,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "home_run",
       batterSucceeded: true,
       summary:
-        "George Springer turned on a heater for a go-ahead three-run homer in ALCS Game 7 — Toronto Centre erupted, and the pennant was theirs.",
+        "George Springer turned on a heater for a go-ahead three-run homer in ALCS Game 7 — Rogers Centre erupted, and the pennant was theirs.",
     },
   },
   {
@@ -78,7 +78,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "World Series",
     gameLabel: "Game 7",
     inning: "Bottom 11",
-    venue: "Toronto Centre",
+    venue: "Rogers Centre",
     outs: 1,
     away: { abbr: "LAD", runs: 5 },
     home: { abbr: "TOR", runs: 4 },
@@ -87,7 +87,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Alejandro Kirk", team: "Blue Jays", number: 30, bats: "R" },
     pitcher: { name: "Yoshinobu Yamamoto", team: "Dodgers", number: 18, throws: "R" },
     situationBlurb:
-      "World Series Game 7, bottom of the eleventh at Toronto Centre. Down one, runners on the corners. You are Alejandro Kirk.",
+      "World Series Game 7, bottom of the eleventh at Rogers Centre. Down one, runners on the corners. You are Alejandro Kirk.",
     stakes: "Contact can tie it. Soft contact the wrong way can end the season.",
     pitches: [
       {
@@ -131,7 +131,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "gidp",
       batterSucceeded: false,
       summary:
-        "Alejandro Kirk rolled over an 0–2 pitch into a season-ending double play in World Series Game 7 at Toronto Centre.",
+        "Alejandro Kirk rolled over an 0–2 pitch into a season-ending double play in World Series Game 7 at Rogers Centre.",
     },
   },
   {
@@ -141,7 +141,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "World Series",
     gameLabel: "Game 1",
     inning: "Bottom 10",
-    venue: "Los Angeles Stadium",
+    venue: "Dodger Stadium",
     outs: 2,
     away: { abbr: "NYY", runs: 3 },
     home: { abbr: "LAD", runs: 2 },
@@ -150,7 +150,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Freddie Freeman", team: "Dodgers", number: 5, bats: "L" },
     pitcher: { name: "Nestor Cortes", team: "Yankees", number: 65, throws: "L" },
     situationBlurb:
-      "World Series Game 1, bottom of the tenth at Los Angeles Stadium. Bases loaded, two outs. You are Freddie Freeman.",
+      "World Series Game 1, bottom of the tenth at Dodger Stadium. Bases loaded, two outs. You are Freddie Freeman.",
     stakes: "One clean swing writes the first walk-off grand slam in Series history.",
     pitches: [
       {
@@ -185,7 +185,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "grand_slam",
       batterSucceeded: true,
       summary:
-        "Freddie Freeman crushed a walk-off grand slam in World Series Game 1 at Los Angeles Stadium — the first of its kind in Series history.",
+        "Freddie Freeman crushed a walk-off grand slam in World Series Game 1 at Dodger Stadium — the first of its kind in Series history.",
     },
   },
   {
@@ -195,7 +195,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "World Series",
     gameLabel: "Game 3",
     inning: "Bottom 18",
-    venue: "Los Angeles Stadium",
+    venue: "Dodger Stadium",
     outs: 0,
     away: { abbr: "TOR", runs: 5 },
     home: { abbr: "LAD", runs: 5 },
@@ -204,7 +204,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Freddie Freeman", team: "Dodgers", number: 5, bats: "L" },
     pitcher: { name: "Brendon Little", team: "Blue Jays", number: 54, throws: "L" },
     situationBlurb:
-      "Tied in the eighteenth at Los Angeles Stadium — a marathon World Series night. Lead it off. You are Freddie Freeman.",
+      "Tied in the eighteenth at Dodger Stadium — a marathon World Series night. Lead it off. You are Freddie Freeman.",
     stakes: "End it. One swing and the longest nights become lore.",
     pitches: [
       {
@@ -239,7 +239,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "home_run",
       batterSucceeded: true,
       summary:
-        "Freddie Freeman led off the 18th with a walk-off homer at Los Angeles Stadium in World Series Game 3 against Toronto — tying the longest Fall Classic game by innings.",
+        "Freddie Freeman led off the 18th with a walk-off homer at Dodger Stadium in World Series Game 3 against Toronto — tying the longest Fall Classic game by innings.",
     },
   },
   {
@@ -249,7 +249,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "World Series",
     gameLabel: "Game 3",
     inning: "Bottom 18",
-    venue: "Los Angeles Stadium",
+    venue: "Dodger Stadium",
     outs: 0,
     away: { abbr: "BOS", runs: 2 },
     home: { abbr: "LAD", runs: 2 },
@@ -258,7 +258,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Max Muncy", team: "Dodgers", number: 13, bats: "L" },
     pitcher: { name: "Nathan Eovaldi", team: "Red Sox", number: 17, throws: "R" },
     situationBlurb:
-      "Eighteen innings at Los Angeles Stadium. Lead off the last frame of a record World Series night. You are Max Muncy.",
+      "Eighteen innings at Dodger Stadium. Lead off the last frame of a record World Series night. You are Max Muncy.",
     stakes: "End the longest World Series game ever played.",
     pitches: [
       {
@@ -284,7 +284,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "home_run",
       batterSucceeded: true,
       summary:
-        "Max Muncy ended an 18-inning World Series epic with a lead-off walk-off homer at Los Angeles Stadium.",
+        "Max Muncy ended an 18-inning World Series epic with a lead-off walk-off homer at Dodger Stadium.",
     },
   },
   {
@@ -294,7 +294,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "ALCS",
     gameLabel: "Game 6",
     inning: "Bottom 9",
-    venue: "Houston Field",
+    venue: "Minute Maid Park",
     outs: 2,
     away: { abbr: "NYY", runs: 4 },
     home: { abbr: "HOU", runs: 4 },
@@ -303,7 +303,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Jose Altuve", team: "Astros", number: 27, bats: "R" },
     pitcher: { name: "Aroldis Chapman", team: "Yankees", number: 54, throws: "L" },
     situationBlurb:
-      "Tied, two outs, bottom nine at Houston Field — pennant on the line. You are Jose Altuve.",
+      "Tied, two outs, bottom nine at Minute Maid Park — pennant on the line. You are Jose Altuve.",
     stakes: "One swing sends Houston to the World Series.",
     pitches: [
       {
@@ -347,7 +347,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "home_run",
       batterSucceeded: true,
       summary:
-        "Jose Altuve walked off the ALCS at Houston Field — two outs in the ninth, pennant clinched in one swing.",
+        "Jose Altuve walked off the ALCS at Minute Maid Park — two outs in the ninth, pennant clinched in one swing.",
     },
   },
   {
@@ -357,7 +357,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "World Series",
     gameLabel: "Game 1",
     inning: "Bottom 11",
-    venue: "Texas Field",
+    venue: "Globe Life Field",
     outs: 0,
     away: { abbr: "ARI", runs: 5 },
     home: { abbr: "TEX", runs: 5 },
@@ -366,7 +366,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Adolis Garcia", team: "Rangers", number: 53, bats: "R" },
     pitcher: { name: "Miguel Castro", team: "Diamondbacks", number: 50, throws: "R" },
     situationBlurb:
-      "Extras in World Series Game 1 at Texas Field after a ninth-inning tie. You are Adolis Garcia.",
+      "Extras in World Series Game 1 at Globe Life Field after a ninth-inning tie. You are Adolis Garcia.",
     stakes: "End it and steal Game 1 of the Fall Classic.",
     pitches: [
       {
@@ -410,7 +410,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "home_run",
       batterSucceeded: true,
       summary:
-        "Adolis Garcia walked off World Series Game 1 in the 11th at Texas Field.",
+        "Adolis Garcia walked off World Series Game 1 in the 11th at Globe Life Field.",
     },
   },
   {
@@ -420,7 +420,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "AL Wild Card",
     gameLabel: "Game 1",
     inning: "Bottom 11",
-    venue: "Toronto Centre",
+    venue: "Rogers Centre",
     outs: 0,
     away: { abbr: "BAL", runs: 2 },
     home: { abbr: "TOR", runs: 2 },
@@ -429,7 +429,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Edwin Encarnacion", team: "Blue Jays", number: 10, bats: "R" },
     pitcher: { name: "Ubaldo Jimenez", team: "Orioles", number: 31, throws: "R" },
     situationBlurb:
-      "Winner-take-all Wild Card, tied in the 11th at Toronto Centre, traffic on. You are Edwin Encarnacion.",
+      "Winner-take-all Wild Card, tied in the 11th at Rogers Centre, traffic on. You are Edwin Encarnacion.",
     stakes: "One swing advances Toronto.",
     pitches: [
       {
@@ -455,7 +455,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "home_run",
       batterSucceeded: true,
       summary:
-        "Edwin Encarnacion ended the Wild Card with a three-run walk-off at Toronto Centre.",
+        "Edwin Encarnacion ended the Wild Card with a three-run walk-off at Rogers Centre.",
     },
   },
   {
@@ -465,7 +465,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "NL Wild Card",
     gameLabel: "Game 1",
     inning: "Bottom 9",
-    venue: "Los Angeles Stadium",
+    venue: "Dodger Stadium",
     outs: 0,
     away: { abbr: "STL", runs: 1 },
     home: { abbr: "LAD", runs: 1 },
@@ -474,7 +474,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Chris Taylor", team: "Dodgers", number: 3, bats: "R" },
     pitcher: { name: "Alex Reyes", team: "Cardinals", number: 37, throws: "R" },
     situationBlurb:
-      "Winner-take-all NL Wild Card, tied in the ninth at Los Angeles Stadium. You are Chris Taylor.",
+      "Winner-take-all NL Wild Card, tied in the ninth at Dodger Stadium. You are Chris Taylor.",
     stakes: "Walk it off or send October into extras under maximum pressure.",
     pitches: [
       {
@@ -500,7 +500,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "home_run",
       batterSucceeded: true,
       summary:
-        "Chris Taylor walked off the NL Wild Card with a solo shot at Los Angeles Stadium.",
+        "Chris Taylor walked off the NL Wild Card with a solo shot at Dodger Stadium.",
     },
   },
   {
@@ -510,7 +510,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "ALDS",
     gameLabel: "Game 3",
     inning: "Bottom 13",
-    venue: "Boston Park",
+    venue: "Fenway Park",
     outs: 0,
     away: { abbr: "TB", runs: 4 },
     home: { abbr: "BOS", runs: 4 },
@@ -519,7 +519,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Kike Hernandez", team: "Red Sox", number: 7, bats: "R" },
     pitcher: { name: "Luis Patino", team: "Rays", number: 20, throws: "R" },
     situationBlurb:
-      "Extras in an ALDS elimination atmosphere at Boston Park. Lead it off. You are Kike Hernandez.",
+      "Extras in an ALDS elimination atmosphere at Fenway Park. Lead it off. You are Kike Hernandez.",
     stakes: "End the night before the bullpen empties completely.",
     pitches: [
       {
@@ -545,7 +545,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "home_run",
       batterSucceeded: true,
       summary:
-        "Kike Hernandez walked off ALDS Game 3 in the 13th at Boston Park.",
+        "Kike Hernandez walked off ALDS Game 3 in the 13th at Fenway Park.",
     },
   },
   {
@@ -555,7 +555,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "ALCS",
     gameLabel: "Game 3",
     inning: "Bottom 10",
-    venue: "Cleveland Field",
+    venue: "Progressive Field",
     outs: 1,
     away: { abbr: "NYY", runs: 5 },
     home: { abbr: "CLE", runs: 5 },
@@ -564,7 +564,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "David Fry", team: "Guardians", number: 6, bats: "R" },
     pitcher: { name: "Clay Holmes", team: "Yankees", number: 65, throws: "R" },
     situationBlurb:
-      "Tied ALCS extras at Cleveland Field. You are David Fry with a chance to steal Game 3.",
+      "Tied ALCS extras at Progressive Field. You are David Fry with a chance to steal Game 3.",
     stakes: "A mistake over the plate and the building erupts.",
     pitches: [
       {
@@ -599,7 +599,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "home_run",
       batterSucceeded: true,
       summary:
-        "David Fry walked off ALCS Game 3 at Cleveland Field.",
+        "David Fry walked off ALCS Game 3 at Progressive Field.",
     },
   },
   {
@@ -609,7 +609,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "World Series",
     gameLabel: "Game 7",
     inning: "Bottom 10",
-    venue: "Cleveland Field",
+    venue: "Progressive Field",
     outs: 2,
     away: { abbr: "CHC", runs: 8 },
     home: { abbr: "CLE", runs: 7 },
@@ -618,7 +618,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Michael Martinez", team: "Indians", number: 1, bats: "S" },
     pitcher: { name: "Mike Montgomery", team: "Cubs", number: 38, throws: "L" },
     situationBlurb:
-      "Down one, two outs, World Series Game 7 extras at Cleveland Field. You are Michael Martinez — last chance.",
+      "Down one, two outs, World Series Game 7 extras at Progressive Field. You are Michael Martinez — last chance.",
     stakes: "A hit keeps the dream alive. An out ends it on the other side.",
     pitches: [
       {
@@ -644,7 +644,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "groundout",
       batterSucceeded: false,
       summary:
-        "Michael Martinez grounded out to end World Series Game 7 at Cleveland Field — the final out of a legendary extra-inning classic.",
+        "Michael Martinez grounded out to end World Series Game 7 at Progressive Field — the final out of a legendary extra-inning classic.",
     },
   },
   {
@@ -654,7 +654,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "World Series",
     gameLabel: "Game 5",
     inning: "Top 9",
-    venue: "Texas Field",
+    venue: "Globe Life Field",
     outs: 2,
     away: { abbr: "ARI", runs: 0 },
     home: { abbr: "TEX", runs: 5 },
@@ -663,7 +663,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Ketel Marte", team: "Diamondbacks", number: 4, bats: "S" },
     pitcher: { name: "Josh Sborz", team: "Rangers", number: 66, throws: "R" },
     situationBlurb:
-      "Down five, two outs, Series on the brink at Texas Field. You are Ketel Marte — the last at-bat of the year.",
+      "Down five, two outs, Series on the brink at Globe Life Field. You are Ketel Marte — the last at-bat of the year.",
     stakes: "Miracle territory. Fight off elimination for one more pitch.",
     pitches: [
       {
@@ -698,7 +698,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "strikeout",
       batterSucceeded: false,
       summary:
-        "Ketel Marte struck out to end the World Series at Texas Field.",
+        "Ketel Marte struck out to end the World Series at Globe Life Field.",
     },
   },
   {
@@ -708,7 +708,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "World Series",
     gameLabel: "Game 6",
     inning: "Bottom 9",
-    venue: "Philadelphia Park",
+    venue: "Citizens Bank Park",
     outs: 2,
     away: { abbr: "HOU", runs: 4 },
     home: { abbr: "PHI", runs: 1 },
@@ -717,7 +717,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Bryce Harper", team: "Phillies", number: 3, bats: "L" },
     pitcher: { name: "Ryan Pressly", team: "Astros", number: 55, throws: "R" },
     situationBlurb:
-      "Trailing late in a potential clincher at Philadelphia Park. You are Bryce Harper.",
+      "Trailing late in a potential clincher at Citizens Bank Park. You are Bryce Harper.",
     stakes: "Keep the Series alive or watch it end here.",
     pitches: [
       {
@@ -752,7 +752,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "strikeout",
       batterSucceeded: false,
       summary:
-        "Bryce Harper went down swinging as the World Series ended at Philadelphia Park.",
+        "Bryce Harper went down swinging as the World Series ended at Citizens Bank Park.",
     },
   },
   {
@@ -762,7 +762,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "World Series",
     gameLabel: "Game 7",
     inning: "Bottom 9",
-    venue: "Houston Field",
+    venue: "Minute Maid Park",
     outs: 2,
     away: { abbr: "WSH", runs: 6 },
     home: { abbr: "HOU", runs: 2 },
@@ -771,7 +771,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Michael Brantley", team: "Astros", number: 23, bats: "L" },
     pitcher: { name: "Daniel Hudson", team: "Nationals", number: 31, throws: "R" },
     situationBlurb:
-      "Down four, two outs, World Series Game 7 at Houston Field. You are Michael Brantley — the last out of the decade.",
+      "Down four, two outs, World Series Game 7 at Minute Maid Park. You are Michael Brantley — the last out of the decade.",
     stakes: "There’s almost no path — unless you start rewriting pitch by pitch.",
     pitches: [
       {
@@ -806,7 +806,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "strikeout",
       batterSucceeded: false,
       summary:
-        "Michael Brantley struck out to end World Series Game 7 at Houston Field.",
+        "Michael Brantley struck out to end World Series Game 7 at Minute Maid Park.",
     },
   },
   {
@@ -816,7 +816,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "ALDS",
     gameLabel: "Game 1",
     inning: "Bottom 9",
-    venue: "Houston Field",
+    venue: "Minute Maid Park",
     outs: 2,
     away: { abbr: "SEA", runs: 7 },
     home: { abbr: "HOU", runs: 5 },
@@ -825,7 +825,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Yordan Alvarez", team: "Astros", number: 44, bats: "L" },
     pitcher: { name: "Robbie Ray", team: "Mariners", number: 38, throws: "L" },
     situationBlurb:
-      "Down two, two outs, last chance in ALDS Game 1 at Houston Field. You are Yordan Alvarez.",
+      "Down two, two outs, last chance in ALDS Game 1 at Minute Maid Park. You are Yordan Alvarez.",
     stakes: "Trail by multiple runs with the season’s first elimination threat already breathing — rewrite it in one swing.",
     pitches: [
       {
@@ -851,7 +851,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "home_run",
       batterSucceeded: true,
       summary:
-        "Yordan Alvarez walked off ALDS Game 1 trailing by two with two outs — a three-run blast at Houston Field that flipped the series opener.",
+        "Yordan Alvarez walked off ALDS Game 1 trailing by two with two outs — a three-run blast at Minute Maid Park that flipped the series opener.",
     },
   },
   {
@@ -861,7 +861,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "NLDS",
     gameLabel: "Game 5",
     inning: "Top 10",
-    venue: "Los Angeles Stadium",
+    venue: "Dodger Stadium",
     outs: 1,
     away: { abbr: "WSH", runs: 3 },
     home: { abbr: "LAD", runs: 3 },
@@ -870,7 +870,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Howie Kendrick", team: "Nationals", number: 47, bats: "R" },
     pitcher: { name: "Joe Kelly", team: "Dodgers", number: 17, throws: "R" },
     situationBlurb:
-      "Winner-take-all NLDS extras at Los Angeles Stadium. Bases loaded. You are Howie Kendrick.",
+      "Winner-take-all NLDS extras at Dodger Stadium. Bases loaded. You are Howie Kendrick.",
     stakes: "Clear the bases and punch Washington into the NLCS.",
     pitches: [
       {
@@ -905,7 +905,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "grand_slam",
       batterSucceeded: true,
       summary:
-        "Howie Kendrick cleared the bases with a 10th-inning grand slam in NLDS Game 5 at Los Angeles Stadium — series over.",
+        "Howie Kendrick cleared the bases with a 10th-inning grand slam in NLDS Game 5 at Dodger Stadium — series over.",
     },
   },
   {
@@ -915,7 +915,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "World Series",
     gameLabel: "Game 5",
     inning: "Bottom 10",
-    venue: "Houston Field",
+    venue: "Minute Maid Park",
     outs: 2,
     away: { abbr: "LAD", runs: 12 },
     home: { abbr: "HOU", runs: 12 },
@@ -924,7 +924,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Alex Bregman", team: "Astros", number: 2, bats: "R" },
     pitcher: { name: "Kenley Jansen", team: "Dodgers", number: 74, throws: "R" },
     situationBlurb:
-      "A 12–12 street fight in World Series Game 5 extras at Houston Field. Two outs. You are Alex Bregman.",
+      "A 12–12 street fight in World Series Game 5 extras at Minute Maid Park. Two outs. You are Alex Bregman.",
     stakes: "End the longest Fall Classic slugfest of the decade.",
     pitches: [
       {
@@ -950,7 +950,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "single",
       batterSucceeded: true,
       summary:
-        "Alex Bregman punched a two-out walk-off single in the 10th of World Series Game 5 at Houston Field — 13–12, series tied.",
+        "Alex Bregman punched a two-out walk-off single in the 10th of World Series Game 5 at Minute Maid Park — 13–12, series tied.",
     },
   },
   {
@@ -960,7 +960,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "ALCS",
     gameLabel: "Game 2",
     inning: "Bottom 1",
-    venue: "Boston Park",
+    venue: "Fenway Park",
     outs: 1,
     away: { abbr: "HOU", runs: 0 },
     home: { abbr: "BOS", runs: 0 },
@@ -969,7 +969,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Rafael Devers", team: "Red Sox", number: 11, bats: "L" },
     pitcher: { name: "Jose Urquidy", team: "Astros", number: 65, throws: "R" },
     situationBlurb:
-      "Bases loaded early in ALCS Game 2 at Boston Park. You are Rafael Devers.",
+      "Bases loaded early in ALCS Game 2 at Fenway Park. You are Rafael Devers.",
     stakes: "One clean swing can seize the night before Houston settles in.",
     pitches: [
       {
@@ -995,7 +995,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "grand_slam",
       batterSucceeded: true,
       summary:
-        "Rafael Devers cleared the bases with a first-inning grand slam in ALCS Game 2 at Boston Park.",
+        "Rafael Devers cleared the bases with a first-inning grand slam in ALCS Game 2 at Fenway Park.",
     },
   },
   {
@@ -1005,7 +1005,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "ALCS",
     gameLabel: "Game 1",
     inning: "Bottom 2",
-    venue: "Texas Field",
+    venue: "Globe Life Field",
     outs: 1,
     away: { abbr: "HOU", runs: 0 },
     home: { abbr: "TEX", runs: 0 },
@@ -1014,7 +1014,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Corey Seager", team: "Rangers", number: 5, bats: "L" },
     pitcher: { name: "Framber Valdez", team: "Astros", number: 59, throws: "L" },
     situationBlurb:
-      "Bases loaded in ALCS Game 1 at Texas Field. You are Corey Seager.",
+      "Bases loaded in ALCS Game 1 at Globe Life Field. You are Corey Seager.",
     stakes: "Punch the first hole in Houston’s October aura.",
     pitches: [
       {
@@ -1040,7 +1040,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "grand_slam",
       batterSucceeded: true,
       summary:
-        "Corey Seager opened the ALCS with a grand slam at Texas Field — Game 1 tone set.",
+        "Corey Seager opened the ALCS with a grand slam at Globe Life Field — Game 1 tone set.",
     },
   },
   {
@@ -1050,7 +1050,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "World Series",
     gameLabel: "Game 7",
     inning: "Top 7",
-    venue: "Houston Field",
+    venue: "Minute Maid Park",
     outs: 0,
     away: { abbr: "WSH", runs: 0 },
     home: { abbr: "HOU", runs: 2 },
@@ -1059,7 +1059,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Howie Kendrick", team: "Nationals", number: 47, bats: "R" },
     pitcher: { name: "Will Harris", team: "Astros", number: 36, throws: "R" },
     situationBlurb:
-      "Trailing in World Series Game 7 at Houston Field. Runner in scoring position. You are Howie Kendrick.",
+      "Trailing in World Series Game 7 at Minute Maid Park. Runner in scoring position. You are Howie Kendrick.",
     stakes: "Flip the lead on the road in a winner-take-all Fall Classic.",
     pitches: [
       {
@@ -1085,7 +1085,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "home_run",
       batterSucceeded: true,
       summary:
-        "Howie Kendrick turned on a cutter for a go-ahead two-run homer in World Series Game 7 at Houston Field.",
+        "Howie Kendrick turned on a cutter for a go-ahead two-run homer in World Series Game 7 at Minute Maid Park.",
     },
   },
   {
@@ -1095,7 +1095,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "World Series",
     gameLabel: "Game 7",
     inning: "Top 10",
-    venue: "Cleveland Field",
+    venue: "Progressive Field",
     outs: 1,
     away: { abbr: "CHC", runs: 6 },
     home: { abbr: "CLE", runs: 6 },
@@ -1104,7 +1104,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Ben Zobrist", team: "Cubs", number: 18, bats: "S" },
     pitcher: { name: "Bryan Shaw", team: "Indians", number: 27, throws: "R" },
     situationBlurb:
-      "Tied World Series Game 7 extras at Cleveland Field. Runner on third. You are Ben Zobrist.",
+      "Tied World Series Game 7 extras at Progressive Field. Runner on third. You are Ben Zobrist.",
     stakes: "Plate the go-ahead run and put the curse on notice.",
     pitches: [
       {
@@ -1130,7 +1130,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "double",
       batterSucceeded: true,
       summary:
-        "Ben Zobrist ripped a go-ahead double in the 10th of World Series Game 7 at Cleveland Field.",
+        "Ben Zobrist ripped a go-ahead double in the 10th of World Series Game 7 at Progressive Field.",
     },
   },
   {
@@ -1140,7 +1140,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "NL Wild Card",
     gameLabel: "Game 3",
     inning: "Top 9",
-    venue: "Milwaukee Park",
+    venue: "American Family Field",
     outs: 1,
     away: { abbr: "NYM", runs: 2 },
     home: { abbr: "MIL", runs: 2 },
@@ -1149,7 +1149,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Pete Alonso", team: "Mets", number: 20, bats: "R" },
     pitcher: { name: "Joel Payamps", team: "Brewers", number: 38, throws: "R" },
     situationBlurb:
-      "Winner-take-all NL Wild Card, tied in the ninth at Milwaukee Park. Traffic on. You are Pete Alonso.",
+      "Winner-take-all NL Wild Card, tied in the ninth at American Family Field. Traffic on. You are Pete Alonso.",
     stakes: "One swing punches a ticket to the Division Series.",
     pitches: [
       {
@@ -1175,7 +1175,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "home_run",
       batterSucceeded: true,
       summary:
-        "Pete Alonso went deep for a go-ahead three-run shot in NL Wild Card Game 3 at Milwaukee Park.",
+        "Pete Alonso went deep for a go-ahead three-run shot in NL Wild Card Game 3 at American Family Field.",
     },
   },
   {
@@ -1185,7 +1185,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "World Series",
     gameLabel: "Game 6",
     inning: "Bottom 9",
-    venue: "Houston Field",
+    venue: "Minute Maid Park",
     outs: 2,
     away: { abbr: "ATL", runs: 7 },
     home: { abbr: "HOU", runs: 0 },
@@ -1194,7 +1194,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Jose Altuve", team: "Astros", number: 27, bats: "R" },
     pitcher: { name: "Will Smith", team: "Braves", number: 51, throws: "L" },
     situationBlurb:
-      "Down seven, two outs, World Series Game 6 at Houston Field. You are Jose Altuve — last chance.",
+      "Down seven, two outs, World Series Game 6 at Minute Maid Park. You are Jose Altuve — last chance.",
     stakes: "Miracle territory. Fight for one more pitch of the year.",
     pitches: [
       {
@@ -1229,7 +1229,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "strikeout",
       batterSucceeded: false,
       summary:
-        "Jose Altuve went down as the World Series ended at Houston Field in Game 6.",
+        "Jose Altuve went down as the World Series ended at Minute Maid Park in Game 6.",
     },
   },
   {
@@ -1239,7 +1239,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "World Series",
     gameLabel: "Game 5",
     inning: "Bottom 9",
-    venue: "New York Stadium",
+    venue: "Yankee Stadium",
     outs: 2,
     away: { abbr: "LAD", runs: 7 },
     home: { abbr: "NYY", runs: 6 },
@@ -1248,7 +1248,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Aaron Judge", team: "Yankees", number: 99, bats: "R" },
     pitcher: { name: "Walker Buehler", team: "Dodgers", number: 21, throws: "R" },
     situationBlurb:
-      "Down one, two outs, World Series Game 5 at New York Stadium. You are Aaron Judge — last chance.",
+      "Down one, two outs, World Series Game 5 at Yankee Stadium. You are Aaron Judge — last chance.",
     stakes: "Tie it with one swing or watch the Series end in the Bronx.",
     pitches: [
       {
@@ -1283,7 +1283,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "flyout",
       batterSucceeded: false,
       summary:
-        "Aaron Judge flew out to end World Series Game 5 at New York Stadium — Series over.",
+        "Aaron Judge flew out to end World Series Game 5 at Yankee Stadium — Series over.",
     },
   },
   {
@@ -1293,7 +1293,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "ALCS",
     gameLabel: "Game 7",
     inning: "Top 9",
-    venue: "Houston Field",
+    venue: "Minute Maid Park",
     outs: 2,
     away: { abbr: "NYY", runs: 0 },
     home: { abbr: "HOU", runs: 4 },
@@ -1302,7 +1302,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Aaron Judge", team: "Yankees", number: 99, bats: "R" },
     pitcher: { name: "Charlie Morton", team: "Astros", number: 31, throws: "R" },
     situationBlurb:
-      "Down four, two outs, ALCS Game 7 at Houston Field. You are Aaron Judge.",
+      "Down four, two outs, ALCS Game 7 at Minute Maid Park. You are Aaron Judge.",
     stakes: "Keep the pennant alive or send Houston to the Fall Classic.",
     pitches: [
       {
@@ -1328,7 +1328,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "strikeout",
       batterSucceeded: false,
       summary:
-        "Aaron Judge went down as Houston clinched the AL pennant in Game 7 at Houston Field.",
+        "Aaron Judge went down as Houston clinched the AL pennant in Game 7 at Minute Maid Park.",
     },
   },
   {
@@ -1338,7 +1338,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "World Series",
     gameLabel: "Game 7",
     inning: "Bottom 9",
-    venue: "Arizona Field",
+    venue: "Bank One Ballpark",
     outs: 1,
     away: { abbr: "NYY", runs: 2 },
     home: { abbr: "ARI", runs: 2 },
@@ -1347,7 +1347,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Luis Gonzalez", team: "Diamondbacks", number: 20, bats: "L" },
     pitcher: { name: "Mariano Rivera", team: "Yankees", number: 42, throws: "R" },
     situationBlurb:
-      "World Series Game 7, bottom of the ninth at Arizona Field. Tied, bases loaded, one out, infield in. You are Luis Gonzalez.",
+      "World Series Game 7, bottom of the ninth at Bank One Ballpark. Tied, bases loaded, one out, infield in. You are Luis Gonzalez.",
     stakes: "A soft scratch can crown a champion. Anything else keeps the season alive for New York.",
     pitches: [
       {
@@ -1373,7 +1373,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "single",
       batterSucceeded: true,
       summary:
-        "Luis Gonzalez flared a bloop single over the drawn-in infield to walk off World Series Game 7 at Arizona Field.",
+        "Luis Gonzalez flared a bloop single over the drawn-in infield to walk off World Series Game 7 at Bank One Ballpark.",
     },
   },
   {
@@ -1383,7 +1383,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "World Series",
     gameLabel: "Game 4",
     inning: "Bottom 10",
-    venue: "New York Stadium",
+    venue: "Yankee Stadium",
     outs: 0,
     away: { abbr: "ARI", runs: 3 },
     home: { abbr: "NYY", runs: 3 },
@@ -1392,7 +1392,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Derek Jeter", team: "Yankees", number: 2, bats: "R" },
     pitcher: { name: "Byung-Hyun Kim", team: "Diamondbacks", number: 49, throws: "R" },
     situationBlurb:
-      "World Series Game 4, extras at New York Stadium after a late tie. You are Derek Jeter.",
+      "World Series Game 4, extras at Yankee Stadium after a late tie. You are Derek Jeter.",
     stakes: "One swing turns midnight into November legend.",
     pitches: [
       {
@@ -1418,7 +1418,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "home_run",
       batterSucceeded: true,
       summary:
-        "Derek Jeter led off the tenth with a walk-off homer in World Series Game 4 at New York Stadium — the clock had already flipped to November.",
+        "Derek Jeter led off the tenth with a walk-off homer in World Series Game 4 at Yankee Stadium — the clock had already flipped to November.",
     },
   },
   {
@@ -1428,7 +1428,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "ALCS",
     gameLabel: "Game 7",
     inning: "Bottom 11",
-    venue: "New York Stadium",
+    venue: "Yankee Stadium",
     outs: 0,
     away: { abbr: "BOS", runs: 5 },
     home: { abbr: "NYY", runs: 5 },
@@ -1437,7 +1437,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Aaron Boone", team: "Yankees", number: 17, bats: "R" },
     pitcher: { name: "Tim Wakefield", team: "Red Sox", number: 49, throws: "R" },
     situationBlurb:
-      "Winner-take-all ALCS Game 7, tied in the eleventh at New York Stadium. You are Aaron Boone.",
+      "Winner-take-all ALCS Game 7, tied in the eleventh at Yankee Stadium. You are Aaron Boone.",
     stakes: "End the rivalry night and punch a World Series ticket.",
     pitches: [
       {
@@ -1463,7 +1463,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "home_run",
       batterSucceeded: true,
       summary:
-        "Aaron Boone walked off ALCS Game 7 with a solo shot at New York Stadium — Boston sent home, Yankees to the Fall Classic.",
+        "Aaron Boone walked off ALCS Game 7 with a solo shot at Yankee Stadium — Boston sent home, Yankees to the Fall Classic.",
     },
   },
   {
@@ -1473,7 +1473,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "NLCS",
     gameLabel: "Game 6",
     inning: "Bottom 8",
-    venue: "Chicago Park",
+    venue: "Wrigley Field",
     outs: 1,
     away: { abbr: "FLA", runs: 0 },
     home: { abbr: "CHC", runs: 3 },
@@ -1482,7 +1482,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Alex Gonzalez", team: "Cubs", number: 8, bats: "R" },
     pitcher: { name: "Mike Remlinger", team: "Marlins", number: 31, throws: "L" },
     situationBlurb:
-      "NLCS Game 6 at Chicago Park. Lead intact, bases loaded, one out in the eighth after a chaotic half-inning. You are Alex Gonzalez.",
+      "NLCS Game 6 at Wrigley Field. Lead intact, bases loaded, one out in the eighth after a chaotic half-inning. You are Alex Gonzalez.",
     stakes: "A clean knock buries Florida. Soft contact the wrong way can unwind everything.",
     pitches: [
       {
@@ -1527,7 +1527,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "ALCS",
     gameLabel: "Game 4",
     inning: "Bottom 12",
-    venue: "Boston Park",
+    venue: "Fenway Park",
     outs: 0,
     away: { abbr: "NYY", runs: 4 },
     home: { abbr: "BOS", runs: 4 },
@@ -1536,7 +1536,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "David Ortiz", team: "Red Sox", number: 34, bats: "L" },
     pitcher: { name: "Paul Quantrill", team: "Yankees", number: 42, throws: "R" },
     situationBlurb:
-      "Down three games to none no longer — ALCS Game 4, tied in the twelfth at Boston Park. You are David Ortiz.",
+      "Down three games to none no longer — ALCS Game 4, tied in the twelfth at Fenway Park. You are David Ortiz.",
     stakes: "Walk it off or the comeback dies before midnight.",
     pitches: [
       {
@@ -1562,7 +1562,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "home_run",
       batterSucceeded: true,
       summary:
-        "David Ortiz walked off ALCS Game 4 in the twelfth at Boston Park — the rally that refused to die had its first heartbeat.",
+        "David Ortiz walked off ALCS Game 4 in the twelfth at Fenway Park — the rally that refused to die had its first heartbeat.",
     },
   },
   {
@@ -1572,7 +1572,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "World Series",
     gameLabel: "Game 2",
     inning: "Bottom 9",
-    venue: "Chicago Field",
+    venue: "U.S. Cellular Field",
     outs: 0,
     away: { abbr: "HOU", runs: 6 },
     home: { abbr: "CWS", runs: 6 },
@@ -1581,7 +1581,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Scott Podsednik", team: "White Sox", number: 22, bats: "L" },
     pitcher: { name: "Brad Lidge", team: "Astros", number: 54, throws: "R" },
     situationBlurb:
-      "World Series Game 2 at Chicago Field, tied after a late seesaw. You are Scott Podsednik.",
+      "World Series Game 2 at U.S. Cellular Field, tied after a late seesaw. You are Scott Podsednik.",
     stakes: "Steal a walk-off and take a Series stranglehold.",
     pitches: [
       {
@@ -1607,7 +1607,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "home_run",
       batterSucceeded: true,
       summary:
-        "Scott Podsednik led off the ninth with a walk-off homer in World Series Game 2 at Chicago Field — South Side bedlam.",
+        "Scott Podsednik led off the ninth with a walk-off homer in World Series Game 2 at U.S. Cellular Field — South Side bedlam.",
     },
   },
   {
@@ -1617,7 +1617,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "NLCS",
     gameLabel: "Game 7",
     inning: "Top 9",
-    venue: "New York Park",
+    venue: "Shea Stadium",
     outs: 0,
     away: { abbr: "STL", runs: 1 },
     home: { abbr: "NYM", runs: 1 },
@@ -1626,7 +1626,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Yadier Molina", team: "Cardinals", number: 4, bats: "R" },
     pitcher: { name: "Aaron Heilman", team: "Mets", number: 39, throws: "R" },
     situationBlurb:
-      "Winner-take-all NLCS Game 7, tied in the ninth at New York Park. Runner on. You are Yadier Molina.",
+      "Winner-take-all NLCS Game 7, tied in the ninth at Shea Stadium. Runner on. You are Yadier Molina.",
     stakes: "A go-ahead swing can steal a pennant on the road.",
     pitches: [
       {
@@ -1652,7 +1652,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "home_run",
       batterSucceeded: true,
       summary:
-        "Yadier Molina crushed a go-ahead two-run homer in the ninth of NLCS Game 7 at New York Park — pennant bound.",
+        "Yadier Molina crushed a go-ahead two-run homer in the ninth of NLCS Game 7 at Shea Stadium — pennant bound.",
     },
   },
   {
@@ -1662,7 +1662,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "World Series",
     gameLabel: "Game 6",
     inning: "Bottom 11",
-    venue: "St. Louis Park",
+    venue: "Busch Stadium",
     outs: 0,
     away: { abbr: "TEX", runs: 9 },
     home: { abbr: "STL", runs: 9 },
@@ -1671,7 +1671,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "David Freese", team: "Cardinals", number: 23, bats: "R" },
     pitcher: { name: "Mark Lowe", team: "Rangers", number: 49, throws: "R" },
     situationBlurb:
-      "World Series Game 6 at St. Louis Park. Twice an out from elimination, now tied in the eleventh. You are David Freese.",
+      "World Series Game 6 at Busch Stadium. Twice an out from elimination, now tied in the eleventh. You are David Freese.",
     stakes: "Walk it off and force a Game 7 — or watch the Series end tonight.",
     pitches: [
       {
@@ -1697,7 +1697,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "home_run",
       batterSucceeded: true,
       summary:
-        "David Freese walked off World Series Game 6 in the eleventh at St. Louis Park — after already tying it in the ninth, the legend was sealed.",
+        "David Freese walked off World Series Game 6 in the eleventh at Busch Stadium — after already tying it in the ninth, the legend was sealed.",
     },
   },
   {
@@ -1707,7 +1707,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "ALCS",
     gameLabel: "Game 2",
     inning: "Bottom 8",
-    venue: "Boston Park",
+    venue: "Fenway Park",
     outs: 1,
     away: { abbr: "DET", runs: 5 },
     home: { abbr: "BOS", runs: 1 },
@@ -1716,7 +1716,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "David Ortiz", team: "Red Sox", number: 34, bats: "L" },
     pitcher: { name: "Joaquin Benoit", team: "Tigers", number: 37, throws: "R" },
     situationBlurb:
-      "ALCS Game 2 at Boston Park. Down four, bases loaded, one out in the eighth. You are David Ortiz.",
+      "ALCS Game 2 at Fenway Park. Down four, bases loaded, one out in the eighth. You are David Ortiz.",
     stakes: "One swing erases the deficit and flips the building.",
     pitches: [
       {
@@ -1742,7 +1742,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "grand_slam",
       batterSucceeded: true,
       summary:
-        "David Ortiz hammers a grand slam in the eighth of ALCS Game 2 at Boston Park — deficit gone in one swing.",
+        "David Ortiz hammers a grand slam in the eighth of ALCS Game 2 at Fenway Park — deficit gone in one swing.",
     },
   },
   {
@@ -1752,7 +1752,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     series: "ALDS",
     gameLabel: "Game 5",
     inning: "Bottom 7",
-    venue: "Toronto Centre",
+    venue: "Rogers Centre",
     outs: 0,
     away: { abbr: "TEX", runs: 3 },
     home: { abbr: "TOR", runs: 2 },
@@ -1761,7 +1761,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     batter: { name: "Jose Bautista", team: "Blue Jays", number: 19, bats: "R" },
     pitcher: { name: "Sam Dyson", team: "Rangers", number: 45, throws: "R" },
     situationBlurb:
-      "Winner-take-all ALDS Game 5 at Toronto Centre. Down one, corners occupied after a chaotic seventh. You are Jose Bautista.",
+      "Winner-take-all ALDS Game 5 at Rogers Centre. Down one, corners occupied after a chaotic seventh. You are Jose Bautista.",
     stakes: "Take the lead and punch the ticket — miss and the inning can still implode.",
     pitches: [
       {
@@ -1787,7 +1787,7 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
       outcome: "home_run",
       batterSucceeded: true,
       summary:
-        "Jose Bautista crushed a go-ahead three-run blast in the seventh of ALDS Game 5 at Toronto Centre — bat flip, bedlam, and a Division Series ticket punched.",
+        "Jose Bautista crushed a go-ahead three-run blast in the seventh of ALDS Game 5 at Rogers Centre — bat flip, bedlam, and a Division Series ticket punched.",
     },
   },
 ];
