@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { PitchType, PlayResult, ZoneCoord } from "@/lib/types";
+import type { ExitKind, PitchType, PlayResult, ZoneCoord } from "@/lib/types";
 import type { BatterHand } from "@/lib/contact";
 import { StrikeZone } from "@/components/game/strike-zone";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,7 @@ type Props = {
   ballProgress?: number;
   exitProgress?: number;
   play?: PlayResult | null;
+  exitKind?: ExitKind | null;
   timingMs?: number;
   windowMs?: number;
   onAim?: (coord: ZoneCoord, timingMs: number) => void;
@@ -40,6 +41,7 @@ export function PitchCanvas({
   ballProgress = 0,
   exitProgress = 0,
   play = null,
+  exitKind = null,
   timingMs,
   windowMs,
   onAim,
@@ -66,6 +68,7 @@ export function PitchCanvas({
         ballProgress={ballProgress}
         exitProgress={exitProgress}
         play={play}
+        exitKind={exitKind}
         contactPoint={target}
         sprayAim={aim}
         sprayTimingMs={timingMs}

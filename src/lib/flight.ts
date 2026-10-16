@@ -1,4 +1,4 @@
-import type { PitchType, PlayResult, ZoneCoord } from "@/lib/types";
+import type { ExitKind, PitchType, PlayResult, ZoneCoord } from "@/lib/types";
 import {
   pathStyleForPlay,
   type BatterHand,
@@ -10,6 +10,43 @@ import {
  * (not above the zone) and grows as it comes "through" the plate.
  */
 const RELEASE: ZoneCoord = { x: 0.5, y: 0.42 };
+
+/** Pitch families for flight timing (Statcast-style buckets). */
+export type PitchFamily = "fastball" | "breaking" | "offspeed";
+
+export function pitchFamily(type: PitchType): PitchFamily {
+  switch (type) {
+    case "FF":
+    case "SI":
+    case "CT": // hard / fastball-adjacent
+      return "fastball";
+    case "CH":
+      return "offspeed";
+    case "SL":
+    case "CU":
+    default:
+      return "breaking";
+  }
+}
+
+/** Baseline flight window for breaking stuff — FF faster, CH slower. */
+export const FLIGHT_MS_BREAKING = 1020;
+
+/**
+ * How long the pitch takes to reach the plate (ms).
+ * Fastballs quicker, changeups slower, breaking in between.
+ */
+export function flightMsForPitch(type: PitchType): number {
+  switch (pitchFamily(type)) {
+    case "fastball":
+      return 850;
+    case "offspeed":
+      return 1200;
+    case "breaking":
+    default:
+      return FLIGHT_MS_BREAKING;
+  }
+}
 
 function clamp01(n: number) {
   return Math.min(1, Math.max(0, n));
@@ -160,8 +197,9 @@ export function exitPositionAt(
   play: PlayResult,
   bats: BatterHand = "R",
   sprayOpts?: Omit<SprayInput, "pitch" | "bats">,
+  exitKind?: ExitKind,
 ): ZoneCoord {
-  return exitVisualAt(progress, contact, play, bats, sprayOpts);
+  return exitVisualAt(progress, contact, play, bats, sprayOpts, exitKind);
 }
 
 /**
@@ -174,9 +212,10 @@ export function exitVisualAt(
   play: PlayResult,
   bats: BatterHand = "R",
   sprayOpts?: Omit<SprayInput, "pitch" | "bats">,
+  exitKind?: ExitKind,
 ): ExitVisual {
   const p = clamp01(progress);
-  const style: ExitPathStyle = pathStyleForPlay(play);
+  const style: ExitPathStyle = pathStyleForPlay(play, exitKind);
   const spray = sprayBias({
     pitch: contact,
     bats,
@@ -211,7 +250,7 @@ export function exitVisualAt(
       break;
     case "ground_single":
       lateral = 0.55 * p + 0.12 * p * p;
-      away = 0.22 * p; // into the infield, not down the frame
+      away = -0.1 * p; // slight drop toward the dirt
       height = 0.04 * Math.abs(Math.sin(p * Math.PI * 2));
       depth = p * 0.85;
       break;
@@ -229,7 +268,7 @@ export function exitVisualAt(
       break;
     case "ground_out":
       lateral = 0.32 * p + 0.08 * p * p;
-      away = 0.18 * p; // weak roller into the dirt ahead
+      away = -0.12 * p; // weak roller dropping toward the dirt
       height = 0.03 * (1 - p);
       depth = p * 0.7;
       break;
@@ -276,12 +315,13 @@ export function exitTrackSamples(
   count = 16,
   bats: BatterHand = "R",
   sprayOpts?: Omit<SprayInput, "pitch" | "bats">,
+  exitKind?: ExitKind,
 ): ExitVisual[] {
   const end = clamp01(upToProgress);
   if (end <= 0.02) return [];
   return Array.from({ length: count }, (_, i) => {
     const t = ((i + 1) / count) * end;
-    return exitVisualAt(t, contact, play, bats, sprayOpts);
+    return exitVisualAt(t, contact, play, bats, sprayOpts, exitKind);
   });
 }
 

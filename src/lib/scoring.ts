@@ -37,7 +37,7 @@ export function zoneDistance(a: ZoneCoord, b: ZoneCoord): number {
 
 /**
  * Outcome stars — no pitch points.
- * 3 = won the game · 2 = came through / pass the baton · 1 = failed
+ * 3 = won the game · 2 = do your job · 1 = failed
  */
 export function starsFromEnding(tone: EndingTone): number {
   switch (tone) {
@@ -63,6 +63,8 @@ export function gradePitch(opts: {
   windowMs: number;
   bases: BasesState;
   outs: number;
+  /** Count when this pitch is thrown (before the outcome) */
+  countBefore: CountState;
   /** Batter handedness — shapes the barrel contact kernel */
   bats?: "L" | "R" | "S";
 }): PitchResultGrade {
@@ -114,6 +116,9 @@ export function gradePitch(opts: {
 
   return {
     pitchId: opts.pitch.id,
+    pitchType: opts.pitch.type,
+    speedMph: opts.pitch.speedMph,
+    countBefore: opts.countBefore,
     decision: opts.decision,
     decisionCorrect,
     swung,

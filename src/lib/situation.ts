@@ -271,7 +271,7 @@ export function resolveEndingNarrative(opts: {
   ) {
     return {
       tone: "pass_the_baton",
-      title: "Pass the baton",
+      title: "Do your job",
       blurb:
         "Good AB — you did your job. The game’s still alive for the next guy.",
       playerCameThrough: true,
