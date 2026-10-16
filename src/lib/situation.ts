@@ -57,6 +57,16 @@ export function batterIsHome(atBat: LegendaryAtBat): boolean {
   return parseInning(atBat.inning).half === "bottom";
 }
 
+/** Location abbr for the batting side (score-bug identity). */
+export function battingSideAbbr(atBat: LegendaryAtBat): string {
+  return batterIsHome(atBat) ? atBat.home.abbr : atBat.away.abbr;
+}
+
+/** Location abbr for the pitching side. */
+export function pitchingSideAbbr(atBat: LegendaryAtBat): string {
+  return batterIsHome(atBat) ? atBat.away.abbr : atBat.home.abbr;
+}
+
 export function applyBaserunning(
   bases: BasesState,
   play: PlayResult,
