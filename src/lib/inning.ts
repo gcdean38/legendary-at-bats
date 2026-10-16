@@ -42,6 +42,16 @@ export type InningState = {
   /** Pitch templates for arsenal draws (legendary mix on rewrite) */
   arsenalTemplates: SeedPitch[];
   sourceCodename?: string;
+  /** Bot 9 flavor — real playoff matchup seeding */
+  bot9?: {
+    year: number;
+    series: string;
+    gameLabel: string;
+    venue: string;
+    homeCity: string;
+    awayCity: string;
+    difficulty: Bot9Difficulty;
+  };
   abLog: AbLogEntry[];
 };
 
@@ -136,16 +146,137 @@ export const BOT9_DEFICIT: Record<Bot9Difficulty, 1 | 2 | 3> = {
 };
 
 /**
+ * Real playoff Bot 9 seeds (home batting, empty bases for the mode).
+ * Three per deficit — createInning picks one at random.
+ */
+export type Bot9Scenario = {
+  year: number;
+  series: string;
+  gameLabel: string;
+  venue: string;
+  awayCity: string;
+  homeCity: string;
+  away: ScoreSide;
+  home: ScoreSide;
+};
+
+export const BOT9_SCENARIOS: Record<Bot9Difficulty, Bot9Scenario[]> = {
+  // Down 1
+  easy: [
+    {
+      year: 1993,
+      series: "World Series",
+      gameLabel: "Game 6",
+      venue: "Toronto Centre",
+      awayCity: "Philadelphia",
+      homeCity: "Toronto",
+      away: { abbr: "PHI", runs: 6 },
+      home: { abbr: "TOR", runs: 5 },
+    },
+    {
+      year: 2001,
+      series: "World Series",
+      gameLabel: "Game 7",
+      venue: "Arizona Field",
+      awayCity: "New York",
+      homeCity: "Arizona",
+      away: { abbr: "NYY", runs: 2 },
+      home: { abbr: "ARI", runs: 1 },
+    },
+    {
+      year: 1979,
+      series: "ALCS",
+      gameLabel: "Game 3",
+      venue: "Anaheim Park",
+      awayCity: "Baltimore",
+      homeCity: "Anaheim",
+      away: { abbr: "BAL", runs: 3 },
+      home: { abbr: "ANA", runs: 2 },
+    },
+  ],
+  // Down 2
+  medium: [
+    {
+      year: 2011,
+      series: "World Series",
+      gameLabel: "Game 6",
+      venue: "St. Louis Park",
+      awayCity: "Texas",
+      homeCity: "St. Louis",
+      away: { abbr: "TEX", runs: 7 },
+      home: { abbr: "STL", runs: 5 },
+    },
+    {
+      year: 1992,
+      series: "NLCS",
+      gameLabel: "Game 7",
+      venue: "Atlanta Park",
+      awayCity: "Pittsburgh",
+      homeCity: "Atlanta",
+      away: { abbr: "PIT", runs: 2 },
+      home: { abbr: "ATL", runs: 0 },
+    },
+    {
+      year: 2023,
+      series: "ALCS",
+      gameLabel: "Game 5",
+      venue: "Houston Field",
+      awayCity: "Texas",
+      homeCity: "Houston",
+      away: { abbr: "TEX", runs: 4 },
+      home: { abbr: "HOU", runs: 2 },
+    },
+  ],
+  // Down 3 — rare Bot 9 holes; seeded from real playoff series pressure
+  hard: [
+    {
+      // 2016 NLDS G4: Cubs climbed out of a 3+ run 9th-inning hole (road that night).
+      // Mode puts you in that hole batting last at Chicago Park.
+      year: 2016,
+      series: "NLDS",
+      gameLabel: "Game 4",
+      venue: "Chicago Park",
+      awayCity: "San Francisco",
+      homeCity: "Chicago",
+      away: { abbr: "SF", runs: 5 },
+      home: { abbr: "CHC", runs: 2 },
+    },
+    {
+      // 2004 ALCS pressure at Fenway — Sox often dug out of late deficits that October.
+      year: 2004,
+      series: "ALCS",
+      gameLabel: "Game 5",
+      venue: "Boston Park",
+      awayCity: "New York",
+      homeCity: "Boston",
+      away: { abbr: "NYY", runs: 6 },
+      home: { abbr: "BOS", runs: 3 },
+    },
+    {
+      // 2019 World Series — Astros faced heavy late deficits at Houston Field.
+      year: 2019,
+      series: "World Series",
+      gameLabel: "Game 2",
+      venue: "Houston Field",
+      awayCity: "Washington",
+      homeCity: "Houston",
+      away: { abbr: "WSH", runs: 7 },
+      home: { abbr: "HOU", runs: 4 },
+    },
+  ],
+};
+
+/**
  * Bottom of the 9th: home batting, empty bases, 0 outs.
- * Deficit is chosen by difficulty: easy 1 · medium 2 · hard 3.
+ * Deficit + teams come from a real playoff seed for that difficulty.
  */
 export function createInning(
   difficulty: Bot9Difficulty = "medium",
   rng: () => number = Math.random,
 ): InningState {
   const startDeficit = BOT9_DEFICIT[difficulty];
-  const awayRuns = 2 + Math.floor(rng() * 5); // 2–6
-  const homeRuns = awayRuns - startDeficit;
+  const pool = BOT9_SCENARIOS[difficulty];
+  const scenario = pool[Math.floor(rng() * pool.length)]!;
   const throws: "L" | "R" = rng() < 0.28 ? "L" : "R";
 
   return {
@@ -153,12 +284,12 @@ export function createInning(
     inningNumber: 9,
     outs: 0,
     bases: emptyBases(),
-    away: { abbr: "AWY", runs: awayRuns },
-    home: { abbr: "HME", runs: homeRuns },
+    away: { ...scenario.away },
+    home: { ...scenario.home },
     battingHome: true,
     startDeficit,
     pitcher: {
-      team: "Away",
+      team: scenario.awayCity,
       number: 1 + Math.floor(rng() * 99),
       throws,
     },
@@ -166,6 +297,15 @@ export function createInning(
     runsThisInning: 0,
     kind: "bot9",
     arsenalTemplates: generateOpeningSequence(GENERIC_ARSENAL, 6, rng),
+    bot9: {
+      year: scenario.year,
+      series: scenario.series,
+      gameLabel: scenario.gameLabel,
+      venue: scenario.venue,
+      homeCity: scenario.homeCity,
+      awayCity: scenario.awayCity,
+      difficulty,
+    },
     abLog: [],
   };
 }
@@ -208,21 +348,21 @@ export function createRewriteInning(
   };
 }
 
-function deficitCopy(deficit: number): { blurb: string; stakes: string } {
-  if (deficit === 0) {
-    return {
-      blurb: "Tied late. One run takes the lead — keep swinging.",
-      stakes: "Don’t leave it on the table.",
-    };
-  }
+function deficitCopy(
+  deficit: number,
+  bot9?: InningState["bot9"],
+): { blurb: string; stakes: string } {
+  const setting = bot9
+    ? `${bot9.year} ${bot9.series} ${bot9.gameLabel} at ${bot9.venue}. `
+    : "";
   if (deficit === 1) {
     return {
-      blurb: "Down one. Tie it or take the lead before three outs.",
+      blurb: `${setting}Down one. Tie it or take the lead before three outs.`,
       stakes: "One swing can rewrite the night.",
     };
   }
   return {
-    blurb: `Down ${deficit}. Put a rally together before three outs.`,
+    blurb: `${setting}Down ${deficit}. Put a rally together before three outs.`,
     stakes: `You need ${deficit} to tie and ${deficit + 1} to lead.`,
   };
 }
@@ -242,12 +382,15 @@ export function atBatFromInning(
     state.half === "bottom"
       ? `Bottom ${state.inningNumber}`
       : `Top ${state.inningNumber}`;
-  const batterTeam = state.battingHome ? "Home" : "Away";
+  const batterTeam = state.battingHome
+    ? (state.bot9?.homeCity ?? "Home")
+    : (state.bot9?.awayCity ?? "Away");
+  const pitcherTeam = state.bot9?.awayCity ?? state.pitcher.team;
   const isLeadOff = state.abLog.length === 0;
 
   const copy =
     isLeadOff && state.kind === "bot9"
-      ? deficitCopy(state.startDeficit)
+      ? deficitCopy(state.startDeficit, state.bot9)
       : {
           blurb: `${label}, ${state.outs} out${state.outs === 1 ? "" : "s"}, ${runners.toLowerCase()}. Still ${
             deficit === 0 ? "tied" : `down ${deficit}`
@@ -268,23 +411,32 @@ export function atBatFromInning(
   const codename =
     state.kind === "rewrite"
       ? `Rewrite · ${state.sourceCodename ?? "History"}`
-      : "Bottom of the 9th";
+      : state.bot9
+        ? `${state.bot9.homeCity} vs ${state.bot9.awayCity}`
+        : "Bottom of the 9th";
 
   return {
     id: `${state.kind}-${state.inningNumber}-${state.half}-b${state.batterIndex}`,
     codename,
-    year: 2026,
-    series: state.kind === "rewrite" ? "Rewrite history" : "Bottom of the 9th",
-    gameLabel: `Batter ${state.batterIndex}`,
+    year: state.bot9?.year ?? 2026,
+    series:
+      state.kind === "rewrite"
+        ? "Rewrite history"
+        : (state.bot9?.series ?? "Bottom of the 9th"),
+    gameLabel: state.bot9?.gameLabel ?? `Batter ${state.batterIndex}`,
     inning: label,
-    venue: "Practice Field",
+    venue: state.bot9?.venue ?? "Practice Field",
     outs: state.outs,
     away: state.away,
     home: state.home,
     bases: { ...state.bases },
     runners,
     batter: { team: batterTeam, number: batterNum, bats },
-    pitcher: { ...state.pitcher },
+    pitcher: {
+      team: pitcherTeam,
+      number: state.pitcher.number,
+      throws: state.pitcher.throws,
+    },
     situationBlurb:
       state.kind === "rewrite" && state.batterIndex === 2
         ? `You’re on the verge of rewriting history. ${copy.blurb}`

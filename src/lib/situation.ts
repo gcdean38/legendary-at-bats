@@ -60,6 +60,7 @@ export function batterIsHome(atBat: LegendaryAtBat): boolean {
     sf: ["san francisco"],
     ana: ["anaheim", "los angeles"],
     laa: ["anaheim", "los angeles"],
+    pit: ["pittsburgh"],
     min: ["minnesota"],
     oak: ["oakland"],
     kc: ["kansas city"],

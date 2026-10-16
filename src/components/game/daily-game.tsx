@@ -934,22 +934,19 @@ function IntroScreen({
           <div className="grid grid-cols-3 gap-2">
             {(
               [
-                { id: "easy", label: "Easy", sub: "Down 1" },
-                { id: "medium", label: "Medium", sub: "Down 2" },
-                { id: "hard", label: "Hard", sub: "Down 3" },
+                { id: "easy", label: "Easy" },
+                { id: "medium", label: "Medium" },
+                { id: "hard", label: "Hard" },
               ] as const
             ).map((opt) => (
               <Button
                 key={opt.id}
                 size="lg"
                 variant="outline"
-                className="h-14 flex-col gap-0.5 border-chalk/20 bg-background/40 px-1 text-sm hover:bg-background/70"
+                className="h-11 border-chalk/20 bg-background/40 text-sm font-semibold hover:bg-background/70"
                 onClick={() => onInning(opt.id)}
               >
-                <span className="font-semibold">{opt.label}</span>
-                <span className="text-[10px] font-normal text-muted-foreground">
-                  {opt.sub}
-                </span>
+                {opt.label}
               </Button>
             ))}
           </div>
