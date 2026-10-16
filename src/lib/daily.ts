@@ -1,5 +1,9 @@
 import { LEGENDARY_AT_BATS } from "@/data/legendary-at-bats";
-import type { HistoryVerdict, LegendaryAtBat } from "@/lib/types";
+import { playResultLabel } from "@/lib/contact";
+import type { LegendaryAtBat, PlayResult } from "@/lib/types";
+
+/** Public play URL for share text. */
+export const SHARE_GAME_URL = "https://gcdean38.github.io/legendary-at-bats/";
 
 /**
  * US Eastern calendar date as YYYY-MM-DD.
@@ -54,29 +58,28 @@ export function getDailyAtBat(date: Date): {
   return { atBat: list[index], dateKey, index };
 }
 
-const VERDICT_SHARE: Record<HistoryVerdict, string> = {
-  changed_history: "Changed history",
-  matched_legend: "Matched the legend",
-  history_held: "History held",
-  fell_short: "Fell short",
-};
-
 export function formatShareSummary(opts: {
   dateKey: string;
+  /** Matchup title, e.g. "Houston vs Atlanta" */
   codename: string;
+  year: number;
+  series: string;
+  gameLabel: string;
   stars: number;
-  verdict: HistoryVerdict;
-  endingTitle?: string;
+  finalPlay: PlayResult;
   isDaily?: boolean;
+  url?: string;
 }): string {
   const starLine = "★".repeat(opts.stars) + "☆".repeat(3 - opts.stars);
-  const header = opts.isDaily
-    ? `Legendary At Bats — ${opts.dateKey}`
-    : "Legendary At Bats";
-  return [
-    header,
+  const roundLine = `${opts.year} ${opts.series} ${opts.gameLabel}`;
+  const lines = [
+    "Legendary At Bats ⚾",
+    ...(opts.isDaily ? [opts.dateKey] : []),
     opts.codename,
+    roundLine,
     starLine,
-    opts.endingTitle ?? VERDICT_SHARE[opts.verdict],
-  ].join("\n");
+    playResultLabel(opts.finalPlay),
+    opts.url ?? SHARE_GAME_URL,
+  ];
+  return lines.join("\n");
 }
