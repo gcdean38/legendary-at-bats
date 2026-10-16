@@ -11,7 +11,6 @@ import {
   getDailyAtBat,
   formatShareSummary,
   easternDateKey,
-  SHARE_GAME_URL,
 } from "@/lib/daily";
 import { exitLabel, flightMsForPitch } from "@/lib/flight";
 import { playResultLabel } from "@/lib/contact";
@@ -564,10 +563,11 @@ export function DailyGame() {
       finalPlay: session.finalPlay,
       isDaily,
     });
+    // Pass text only (summary already includes the game URL). A separate
+    // `url` field makes many targets (Messages, X, etc.) drop the body.
     const payload: ShareData = {
       title: "Legendary At Bats ⚾",
       text,
-      url: SHARE_GAME_URL,
     };
     try {
       if (typeof navigator.share === "function") {
