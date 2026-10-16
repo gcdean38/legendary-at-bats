@@ -94,7 +94,6 @@ export function PitchCanvas({
           transform: fieldActive
             ? `translateY(${eased * 18}%) scale(${1 - eased * 0.72})`
             : "none",
-          transition: "opacity 40ms linear, transform 40ms linear",
           pointerEvents: fieldActive && eased > 0.55 ? "none" : undefined,
         }}
       >
