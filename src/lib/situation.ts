@@ -58,14 +58,16 @@ export function batterIsHome(atBat: LegendaryAtBat): boolean {
     mia: ["miami", "florida", "marlins"],
     atl: ["atlanta", "braves"],
     sf: ["san francisco", "giants"],
-    ana: ["anaheim", "los angeles", "angels"],
-    laa: ["anaheim", "los angeles", "angels"],
+    ana: ["anaheim", "los angeles", "california", "angels"],
+    laa: ["anaheim", "los angeles", "california", "angels"],
+    cal: ["anaheim", "los angeles", "california", "angels"],
     pit: ["pittsburgh", "pirates"],
     min: ["minnesota", "twins"],
     oak: ["oakland", "athletics"],
     kc: ["kansas city", "royals"],
     sd: ["san diego", "padres"],
     col: ["colorado", "rockies"],
+    mon: ["montreal", "expos"],
   };
   const aliases = map[home] ?? [];
   if (aliases.some((a) => team.includes(a))) return true;

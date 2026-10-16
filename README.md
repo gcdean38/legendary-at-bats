@@ -19,7 +19,7 @@ Branch flow: work on `dev` → merge request into `prod` (Pages deploys from `pr
 
 ## What’s in the MVP
 
-- Curated catalog of legendary at-bats (~2016–2026), mixing hero moments and failures
+- Curated catalog of 64 legendary at-bats (Contemporary Era, 1980–present), mixing hero moments and failures
 - Deterministic daily pick by US Eastern date (`America/New_York`) — same AB for everyone that Eastern calendar day
 - Live score bug with location abbrs (e.g. ARI 5 · TEX 5) and B/S/O dots
 - Pitch loop: flight → take **or** click the plate (zone + chase) → count updates; fouls recycle the pitch pool
