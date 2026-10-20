@@ -92,9 +92,11 @@ export function playMatchesHistorical(
 }
 
 /**
- * Legendary dailies/archive: 3★ for recreating the real result (even a
- * game-tying Leyritz HR), changing history, or winning the game.
- * Bot 9 stays on tone-only scoring.
+ * Legendary daily/archive stars:
+ * - Winning-side: match the historical result → 3★ (even a tying Leyritz HR)
+ * - Losing-side: fail like history → 1★; on-base / partial → 2★;
+ *   fully reverse (tie / take lead / win) → 3★
+ * Bot 9 / rewrite PAs stay on tone-only scoring.
  */
 export function resolveStars(opts: {
   atBat: LegendaryAtBat;
@@ -102,21 +104,24 @@ export function resolveStars(opts: {
   tone: EndingTone;
   playerCameThrough: boolean;
 }): number {
-  const { atBat, finalPlay, tone, playerCameThrough } = opts;
+  const { atBat, finalPlay, tone } = opts;
   if (tone === "won_game") return 3;
 
   if (isLegendaryMoment(atBat)) {
-    // Recreate what actually happened (tie HR, walk-off single, etc.)
-    if (
-      atBat.historical.batterSucceeded &&
-      playMatchesHistorical(finalPlay, atBat.historical.outcome)
-    ) {
+    // Winning-side / recreate-the-legend
+    if (atBat.historical.batterSucceeded) {
+      if (playMatchesHistorical(finalPlay, atBat.historical.outcome)) {
+        return 3;
+      }
+      return starsFromEnding(tone);
+    }
+
+    // Losing-side / reverse-history
+    // Full reverse: knot it or flip the lead (won_game already returned above).
+    if (tone === "tied_game" || tone === "took_lead") {
       return 3;
     }
-    // Came through where history failed
-    if (!atBat.historical.batterSucceeded && playerCameThrough) {
-      return 3;
-    }
+    return starsFromEnding(tone); // 2 partial · 1 failed
   }
 
   return starsFromEnding(tone);
