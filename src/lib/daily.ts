@@ -57,8 +57,22 @@ function hashString(input: string): number {
  */
 const DAILY_OVERRIDES: Record<string, string> = {
   "2026-10-16": "2001-ws7-arizona-20", // Luis Gonzalez walk-off single
-  "2026-10-20": "1996-ws4-leyritz", // Jim Leyritz WS G4 HR (pinned; on-this-day starts Oct 21)
+  // One year ago today: Springer ALCS G7 HR. Leyritz is a same-day bonus tile only.
+  "2026-10-20": "2025-alcs-toronto-4",
 };
+
+/**
+ * One-day home bonus (2026-10-20 only): extra “Play the Leyritz at bat” tile.
+ * Not the scored daily — practice/archive style.
+ */
+export const OCT20_BONUS_LEYRITZ_ID = "1996-ws4-leyritz";
+
+export function getOct20BonusAtBat(
+  asOf: Date = new Date(),
+): LegendaryAtBat | null {
+  if (easternDateKey(asOf) !== "2026-10-20") return null;
+  return LEGENDARY_AT_BATS.find((ab) => ab.id === OCT20_BONUS_LEYRITZ_ID) ?? null;
+}
 
 /**
  * First Eastern day shown in “Previous days”. Days on/after this and

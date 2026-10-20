@@ -9,6 +9,7 @@ import { ScoreBug } from "@/components/game/score-bug";
 import { LEGENDARY_AT_BATS } from "@/data/legendary-at-bats";
 import {
   getDailyAtBat,
+  getOct20BonusAtBat,
   listDailyHistory,
   formatShareSummary,
   easternDateKey,
@@ -764,8 +765,12 @@ export function DailyGame() {
             dateKey={dateKey}
             daily={atBat}
             todayAttempt={getFirstDailyAttempt(dateKey)}
+            bonusAtBat={getOct20BonusAtBat(new Date())}
             archiveCount={listDailyHistory(new Date()).length}
             onPlayDaily={() => selectAtBat(atBat, "daily")}
+            onPlayBonus={(ab) =>
+              selectAtBat(ab, "practice", { dateKey: "bonus-leyritz" })
+            }
             onOpenArchive={openHistory}
             onInning={(difficulty) => startInning(difficulty)}
           />
@@ -938,16 +943,20 @@ function IntroScreen({
   dateKey,
   daily,
   todayAttempt,
+  bonusAtBat,
   archiveCount,
   onPlayDaily,
+  onPlayBonus,
   onOpenArchive,
   onInning,
 }: {
   dateKey: string;
   daily: LegendaryAtBat;
   todayAttempt: DailyFirstAttempt | null;
+  bonusAtBat: LegendaryAtBat | null;
   archiveCount: number;
   onPlayDaily: () => void;
+  onPlayBonus: (ab: LegendaryAtBat) => void;
   onOpenArchive: () => void;
   onInning: (difficulty: Bot9Difficulty) => void;
 }) {
@@ -1026,6 +1035,16 @@ function IntroScreen({
         >
           {todayAttempt ? "Replay today’s at-bat" : "Today’s at-bat"}
         </Button>
+        {bonusAtBat && (
+          <Button
+            size="lg"
+            variant="secondary"
+            className="h-12 w-full text-base font-semibold tracking-wide"
+            onClick={() => onPlayBonus(bonusAtBat)}
+          >
+            Play the Leyritz at bat
+          </Button>
+        )}
         <Bot9DifficultyPicker
           title="Bottom of the 9th Mode:"
           onPick={onInning}
