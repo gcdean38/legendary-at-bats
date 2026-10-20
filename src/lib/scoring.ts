@@ -12,6 +12,7 @@ import type {
   CountState,
   EndingTone,
   ExitKind,
+  HistoricalOutcome,
   HistoryVerdict,
   LegendaryAtBat,
   PitchDecision,
@@ -36,8 +37,8 @@ export function zoneDistance(a: ZoneCoord, b: ZoneCoord): number {
 }
 
 /**
- * Outcome stars — no pitch points.
- * 3 = won the game · 2 = do your job · 1 = failed
+ * Outcome stars from ending tone alone (Bot 9 / mid-rally defaults).
+ * 3 = won the game · 2 = did your job · 1 = failed
  */
 export function starsFromEnding(tone: EndingTone): number {
   switch (tone) {
@@ -53,6 +54,72 @@ export function starsFromEnding(tone: EndingTone): number {
     default:
       return 1;
   }
+}
+
+/** Real catalog moments — not Bot 9 / rewrite-generated plate appearances. */
+export function isLegendaryMoment(atBat: LegendaryAtBat): boolean {
+  return !atBat.id.startsWith("bot9-") && !atBat.id.startsWith("rewrite-");
+}
+
+/** Map a live play onto the curated historical outcome labels. */
+export function playMatchesHistorical(
+  play: PlayResult,
+  outcome: HistoricalOutcome,
+): boolean {
+  switch (outcome) {
+    case "home_run":
+    case "grand_slam":
+      return play === "home_run";
+    case "single":
+      return play === "single";
+    case "double":
+      return play === "double";
+    case "walk":
+      return play === "walk";
+    case "strikeout":
+      return play === "strikeout";
+    case "gidp":
+      return play === "double_play";
+    case "flyout":
+      return play === "fly_out" || play === "sac_fly";
+    case "groundout":
+      return play === "ground_out";
+    case "lineout":
+      return play === "line_out";
+    default:
+      return false;
+  }
+}
+
+/**
+ * Legendary dailies/archive: 3★ for recreating the real result (even a
+ * game-tying Leyritz HR), changing history, or winning the game.
+ * Bot 9 stays on tone-only scoring.
+ */
+export function resolveStars(opts: {
+  atBat: LegendaryAtBat;
+  finalPlay: PlayResult;
+  tone: EndingTone;
+  playerCameThrough: boolean;
+}): number {
+  const { atBat, finalPlay, tone, playerCameThrough } = opts;
+  if (tone === "won_game") return 3;
+
+  if (isLegendaryMoment(atBat)) {
+    // Recreate what actually happened (tie HR, walk-off single, etc.)
+    if (
+      atBat.historical.batterSucceeded &&
+      playMatchesHistorical(finalPlay, atBat.historical.outcome)
+    ) {
+      return 3;
+    }
+    // Came through where history failed
+    if (!atBat.historical.batterSucceeded && playerCameThrough) {
+      return 3;
+    }
+  }
+
+  return starsFromEnding(tone);
 }
 
 export function gradePitch(opts: {
@@ -173,7 +240,12 @@ export function finalizeSession(opts: {
     runsScored: runs,
   });
 
-  const stars = starsFromEnding(narrative.tone);
+  const stars = resolveStars({
+    atBat: opts.atBat,
+    finalPlay,
+    tone: narrative.tone,
+    playerCameThrough: narrative.playerCameThrough,
+  });
   const historyVerdict = resolveHistoryVerdict(
     opts.atBat,
     narrative.playerCameThrough,

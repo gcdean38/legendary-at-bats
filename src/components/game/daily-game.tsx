@@ -1546,11 +1546,15 @@ function ResultScreen({
         ? inningOver
           ? (inningLine ?? "Inning over")
           : "Keep the line moving"
-        : displayStars >= 3
-          ? "Won the game"
-          : displayStars === 2
-            ? "Do your job"
-            : "Failed the moment";
+        : session.historyVerdict === "matched_legend"
+          ? "Matched the legend"
+          : session.historyVerdict === "changed_history"
+            ? "Changed history"
+            : displayStars >= 3
+              ? "Won the game"
+              : displayStars === 2
+                ? "Did your job"
+                : "Failed the moment";
 
   const inningHeadline = !isInning
     ? session.endingTitle
