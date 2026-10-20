@@ -6,8 +6,9 @@ import {
 } from "@/lib/contact";
 
 /**
- * Catcher's-eye release: ball starts small near the heart of the frame
- * (not above the zone) and grows as it comes "through" the plate.
+ * Batter / plate approach release: looking out from the box toward the
+ * mound. Ball starts small at release and grows as it comes toward you
+ * through the plate (same approach direction a batter sees).
  */
 const RELEASE: ZoneCoord = { x: 0.5, y: 0.42 };
 
@@ -74,7 +75,7 @@ function commitT(type: PitchType, progress: number): number {
 /**
  * Path from shared release → plate location.
  * Every pitch tunnels from the same spot; late frames commit through the
- * zone to the exact target — catcher's-eye, not top-down.
+ * zone to the exact target — batter approach (ball coming at you), not top-down.
  */
 export function ballPositionAt(
   progress: number,
@@ -95,7 +96,7 @@ export function ballScaleAt(progress: number): number {
 }
 
 /**
- * Seam motion for the inbound baseball (catcher's eye).
+ * Seam motion for the inbound baseball (batter / plate view).
  *
  * - Fastballs: no visible spin (tight 4-seam / hard look).
  * - Breaking: face rotates CW for RHP, CCW for LHP (classic hitters' cue).
@@ -124,11 +125,11 @@ export function ballSeamStyle(
   }
 
   if (family === "offspeed") {
-    // End-over-end tumble toward the catcher — seams flip over the top.
+    // End-over-end tumble toward the plate — seams flip over the top.
     return { spinZ: 0, spinX: spinT * 420 };
   }
 
-  // Breaking: RHP clockwise, LHP counterclockwise from catcher's view.
+  // Breaking: RHP clockwise, LHP counterclockwise from the batter's view.
   const dir = throws === "R" ? 1 : -1;
   const amount = pitchType === "CU" ? 480 : 560;
   return { spinZ: dir * spinT * amount, spinX: 0 };

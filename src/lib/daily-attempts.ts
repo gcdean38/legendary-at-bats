@@ -18,10 +18,14 @@ export type DailyFirstAttempt = {
 type AttemptStore = Record<string, DailyFirstAttempt>;
 
 /**
- * Oct 20 daily swapped Leyritz → Springer; clear that day’s locked first try
- * so everyone gets a fresh scored attempt on the new moment.
+ * One-shot clears of the Oct 20 locked first try:
+ * - v1: daily swapped Leyritz → Springer
+ * - v2: Springer pitch script corrected to real two-sinker AB
  */
-const CLEAR_OCT20_ATTEMPT = "clear-2026-10-20-attempt";
+const CLEAR_OCT20_ATTEMPTS = [
+  "clear-2026-10-20-attempt",
+  "clear-2026-10-20-attempt-v2-springer-pitches",
+] as const;
 
 function runMigrations(store: AttemptStore): AttemptStore {
   if (typeof window === "undefined") return store;
@@ -37,18 +41,20 @@ function runMigrations(store: AttemptStore): AttemptStore {
   let next = store;
   let changed = false;
 
-  if (!done.includes(CLEAR_OCT20_ATTEMPT)) {
+  for (const key of CLEAR_OCT20_ATTEMPTS) {
+    if (done.includes(key)) continue;
     if (next["2026-10-20"]) {
       const { ["2026-10-20"]: _removed, ...rest } = next;
       next = rest;
       changed = true;
     }
-    done = [...done, CLEAR_OCT20_ATTEMPT];
-    try {
-      window.localStorage.setItem(MIGRATION_KEY, JSON.stringify(done));
-    } catch {
-      /* ignore */
-    }
+    done = [...done, key];
+  }
+
+  try {
+    window.localStorage.setItem(MIGRATION_KEY, JSON.stringify(done));
+  } catch {
+    /* ignore */
   }
 
   if (changed) writeStore(next);
