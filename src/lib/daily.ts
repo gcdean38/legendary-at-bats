@@ -13,7 +13,7 @@ export const SOCIAL_X_URL = "https://x.com/legendaryatbats";
  * Inclusive Eastern window: prefer moments that historically fell on
  * this calendar day (month–day). Outside the window, use hash rotation.
  */
-export const SAME_DAY_DAILY_START = "2026-10-20";
+export const SAME_DAY_DAILY_START = "2026-10-21";
 export const SAME_DAY_DAILY_END = "2026-11-01";
 
 /**
@@ -57,6 +57,7 @@ function hashString(input: string): number {
  */
 const DAILY_OVERRIDES: Record<string, string> = {
   "2026-10-16": "2001-ws7-arizona-20", // Luis Gonzalez walk-off single
+  "2026-10-20": "1996-ws4-leyritz", // Jim Leyritz WS G4 HR (pinned; on-this-day starts Oct 21)
 };
 
 /**
