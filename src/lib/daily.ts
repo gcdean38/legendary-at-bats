@@ -1,9 +1,20 @@
+import { HISTORIC_DATES } from "@/data/historic-dates";
 import { LEGENDARY_AT_BATS } from "@/data/legendary-at-bats";
 import { playResultLabel } from "@/lib/contact";
 import type { LegendaryAtBat, PlayResult } from "@/lib/types";
 
 /** Public play URL for share text. */
 export const SHARE_GAME_URL = "https://gcdean38.github.io/legendary-at-bats/";
+
+/** Official X / Twitter account. */
+export const SOCIAL_X_URL = "https://x.com/legendaryatbats";
+
+/**
+ * Inclusive Eastern window: prefer moments that historically fell on
+ * this calendar day (month–day). Outside the window, use hash rotation.
+ */
+export const SAME_DAY_DAILY_START = "2026-10-20";
+export const SAME_DAY_DAILY_END = "2026-11-01";
 
 /**
  * US Eastern calendar date as YYYY-MM-DD.
@@ -70,9 +81,30 @@ export function shiftEasternDateKey(dateKey: string, deltaDays: number): string 
   return easternDateKey(dt);
 }
 
+function monthDay(isoDate: string): string {
+  // YYYY-MM-DD → MM-DD
+  return isoDate.slice(5);
+}
+
+/** Catalog moments whose real game date shares this Eastern month–day. */
+export function momentsOnCalendarDay(dateKey: string): LegendaryAtBat[] {
+  const md = monthDay(dateKey);
+  return LEGENDARY_AT_BATS.filter((ab) => {
+    const historic = HISTORIC_DATES[ab.id];
+    return historic != null && monthDay(historic) === md;
+  });
+}
+
+function inSameDayWindow(dateKey: string): boolean {
+  return dateKey >= SAME_DAY_DAILY_START && dateKey <= SAME_DAY_DAILY_END;
+}
+
 /**
  * Deterministic daily pick so every player gets the same at-bat
  * on the same US Eastern calendar day.
+ *
+ * Through {@link SAME_DAY_DAILY_END}, prefer a moment that historically
+ * happened on this calendar day (month–day). Otherwise hash-rotate.
  */
 export function getDailyAtBat(date: Date): {
   atBat: LegendaryAtBat;
@@ -91,6 +123,19 @@ export function getDailyAtBat(date: Date): {
       return { atBat: list[index]!, dateKey, index };
     }
   }
+
+  if (inSameDayWindow(dateKey)) {
+    const sameDay = momentsOnCalendarDay(dateKey);
+    if (sameDay.length > 0) {
+      const pick =
+        sameDay[
+          hashString(`legendary-at-bats:same-day:${dateKey}`) % sameDay.length
+        ]!;
+      const index = list.findIndex((ab) => ab.id === pick.id);
+      return { atBat: pick, dateKey, index: index >= 0 ? index : 0 };
+    }
+  }
+
   const index = hashString(`legendary-at-bats:${dateKey}`) % list.length;
   return { atBat: list[index]!, dateKey, index };
 }
