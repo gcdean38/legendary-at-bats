@@ -12,6 +12,7 @@ import {
   listDailyHistory,
   formatShareSummary,
   easternDateKey,
+  SOCIAL_X_URL,
   type DailyHistoryEntry,
 } from "@/lib/daily";
 import {
@@ -963,6 +964,16 @@ function IntroScreen({
         </h1>
         <p className="mx-auto max-w-sm text-sm text-muted-foreground sm:text-base">
           One new moment each day. Your first try is the one that counts.
+        </p>
+        <p className="text-sm">
+          <a
+            href={SOCIAL_X_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-flood underline-offset-4 transition hover:text-primary hover:underline"
+          >
+            @{SOCIAL_X_URL.replace("https://x.com/", "")}
+          </a>
         </p>
         <div className="mx-auto w-full max-w-sm space-y-2 text-left">
           <div className="text-center">
