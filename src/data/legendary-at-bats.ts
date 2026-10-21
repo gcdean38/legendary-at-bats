@@ -2,12 +2,58 @@ import type { LegendaryAtBat } from "@/lib/types";
 import { CONTEMPORARY_ERA_EXPANSION } from "@/data/legendary-era-expansion";
 
 /**
- * Curated legendary playoff/clutch at-bats — Contemporary Era (1980–present).
- * Target 64 moments. Franchise nicknames + real player/venue names (no logos).
- * Pitch sequences are stylized for gameplay; after the script, later pitches
- * are drawn from that pitcher's arsenal with fresh locations.
+ * Curated legendary playoff/clutch at-bats — mostly Contemporary Era
+ * (1980–present), plus a few earlier October icons. Franchise nicknames +
+ * real player/venue names (no logos). Pitch sequences are stylized for
+ * gameplay; after the script, later pitches are drawn from that pitcher's
+ * arsenal with fresh locations.
  */
 export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
+  {
+    id: "1975-ws6-boston-27",
+    codename: "Red Sox vs Reds",
+    year: 1975,
+    series: "World Series",
+    gameLabel: "Game 6",
+    inning: "Bottom 12",
+    venue: "Fenway Park",
+    outs: 0,
+    away: { abbr: "CIN", runs: 6 },
+    home: { abbr: "BOS", runs: 6 },
+    bases: { first: false, second: false, third: false },
+    runners: "Bases empty",
+    batter: { name: "Carlton Fisk", team: "Red Sox", number: 27, bats: "R" },
+    pitcher: { name: "Pat Darcy", team: "Reds", number: 44, throws: "R" },
+    situationBlurb:
+      "World Series Game 6 at Fenway Park. Tied in the twelfth after midnight. You are Carlton Fisk — leadoff.",
+    stakes: "Walk it off, force Game 7, and etch yourself into October forever.",
+    pitches: [
+      {
+        id: "bos27-p1",
+        type: "FF",
+        speedMph: 90,
+        location: { x: 0.52, y: 0.12 },
+        inZone: false,
+        expectedDecision: "take",
+        approachCue: "Fastball sails high. Get to 1–0.",
+      },
+      {
+        id: "bos27-p2",
+        type: "SI",
+        speedMph: 88,
+        location: { x: 0.28, y: 0.68 },
+        inZone: true,
+        expectedDecision: "swing",
+        approachCue: "Sinker down and in — wave it fair down the line.",
+      },
+    ],
+    historical: {
+      outcome: "home_run",
+      batterSucceeded: true,
+      summary:
+        "Carlton Fisk led off the twelfth with a walk-off homer off the Fenway foul pole in World Series Game 6 — arms waving, Series forced to seven.",
+    },
+  },
   {
     id: "2025-alcs-toronto-4",
     codename: "Blue Jays vs Mariners",
