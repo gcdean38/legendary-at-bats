@@ -3,6 +3,9 @@
  * Used to schedule same-day dailies during the playoff window.
  */
 export const HISTORIC_DATES: Record<string, string> = {
+  // Pre-1980 icons
+  "1975-ws6-boston-27": "1975-10-21", // Fisk WS G6 walk-off
+
   // 2020s
   "2025-alcs-toronto-4": "2025-10-20", // Springer ALCS G7
   "2025-ws7-toronto-30": "2025-11-01", // Kirk WS G7
