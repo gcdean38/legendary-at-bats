@@ -57,6 +57,8 @@ function hashString(input: string): number {
  */
 const DAILY_OVERRIDES: Record<string, string> = {
   "2026-10-16": "2001-ws7-arizona-20", // Luis Gonzalez walk-off single
+  // Hash had rotated Springer here; swap to Leyritz so archive isn’t Springer twice.
+  "2026-10-18": "1996-ws4-leyritz",
   // One year ago today: Springer ALCS G7 HR. Leyritz is a same-day bonus tile only.
   "2026-10-20": "2025-alcs-toronto-4",
   // On this day 1975: Fisk waves it fair. (Skip Judge ALCS G7 K — already daily’d.)
