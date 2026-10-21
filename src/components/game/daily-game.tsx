@@ -19,6 +19,9 @@ import {
 import {
   getAllFirstDailyAttempts,
   getFirstDailyAttempt,
+  isBestStillFirstTry,
+  isDailyDateKey,
+  recordBestDailyAttempt,
   saveFirstDailyAttemptIfEmpty,
   type DailyFirstAttempt,
 } from "@/lib/daily-attempts";
@@ -40,11 +43,13 @@ import {
   dealNextAtBat,
   createInning,
   createRewriteInning,
+  inningResultStars,
   inningSummary,
-  isBot9TiedForExtras,
+  isTiedForExtras,
   isInningOver,
   isWalkOff,
   shouldOfferRewriteContinue,
+  tiedExtrasBlurb,
   type AbLogEntry,
   type Bot9Difficulty,
   type InningState,
@@ -331,9 +336,14 @@ export function DailyGame() {
     }
     setAtBat(next);
     setPlayMode(mode);
+    // Preserve YYYY-MM-DD through Bot 9 / rewrite rally batters.
     const nextDateKey =
       opts?.dateKey ??
-      (mode === "daily" ? easternDateKey(new Date()) : next.codename);
+      (mode === "daily"
+        ? easternDateKey(new Date())
+        : mode === "inning"
+          ? dateKey
+          : next.codename);
     setDateKey(nextDateKey);
     originalDailyRef.current =
       mode === "daily" && !getFirstDailyAttempt(nextDateKey);
@@ -517,7 +527,7 @@ export function DailyGame() {
         end_reason: reason,
       });
 
-      // Lock the first daily try only — replays never overwrite.
+      // Lock the first daily try only — replays never overwrite first-try.
       if (playMode === "daily" && originalDailyRef.current) {
         saveFirstDailyAttemptIfEmpty({
           dateKey: final.dateKey,
@@ -561,6 +571,18 @@ export function DailyGame() {
           return;
         }
 
+        // Finished Bot 9 / rewrite half — persist best for archive date keys.
+        if (isDailyDateKey(dateKey) && next.kind === "rewrite") {
+          recordBestDailyAttempt({
+            dateKey,
+            atBatId: next.sourceMomentId ?? atBat.id,
+            stars: inningResultStars(next, final),
+            finalPlay: final.finalPlay,
+            endingTitle: inningSummary(next),
+          });
+          setAttemptsTick((n) => n + 1);
+        }
+
         setInningPop(null);
         setPhase("result");
         return;
@@ -571,6 +593,21 @@ export function DailyGame() {
         setInningPop(null);
         setPhase("rewrite_offer");
         return;
+      }
+
+      // Single-AB daily / archive practice — keep best score up to date.
+      if (
+        isDailyDateKey(dateKey) &&
+        (playMode === "daily" || playMode === "practice")
+      ) {
+        recordBestDailyAttempt({
+          dateKey,
+          atBatId: atBat.id,
+          stars: final.stars,
+          finalPlay: final.finalPlay,
+          endingTitle: final.endingTitle,
+        });
+        setAttemptsTick((n) => n + 1);
       }
 
       setInningPop(null);
@@ -846,7 +883,12 @@ export function DailyGame() {
             inningOver={isInning && !!inningSnap && isInningOver(inningSnap)}
             walkedOff={isInning && !!inningSnap && isWalkOff(inningSnap)}
             tiedExtras={
-              isInning && !!inningSnap && isBot9TiedForExtras(inningSnap)
+              isInning && !!inningSnap && isTiedForExtras(inningSnap)
+            }
+            tiedExtrasMessage={
+              isInning && inningSnap && isTiedForExtras(inningSnap)
+                ? tiedExtrasBlurb(inningSnap)
+                : null
             }
             inningLine={
               isInning && inningSnap ? inningSummary(inningSnap) : null
@@ -1089,7 +1131,8 @@ function ArchiveScreen({
         </Button>
       </div>
       <p className="text-sm text-muted-foreground">
-        Past dailies, newest first. First-try results stick with each day.
+        Past dailies, newest first. Best score shown — gray stars mean you set
+        it after that day.
       </p>
       {entries.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
@@ -1099,6 +1142,10 @@ function ArchiveScreen({
         <ul className="flex flex-1 flex-col gap-2 overflow-y-auto pb-4">
           {entries.map((entry) => {
             const attempt = attempts[entry.dateKey];
+            const bestStars = attempt?.bestStars ?? attempt?.stars ?? 0;
+            const onReleaseDay = attempt?.bestOnReleaseDay ?? true;
+            const showFirstTry =
+              !!attempt && isBestStillFirstTry(attempt) && onReleaseDay;
             return (
               <li key={entry.dateKey}>
                 <button
@@ -1124,13 +1171,26 @@ function ArchiveScreen({
                     </div>
                     {attempt ? (
                       <div className="shrink-0 text-right">
-                        <p className="font-[family-name:var(--font-display)] text-lg text-primary">
-                          {"★".repeat(attempt.stars)}
-                          {"☆".repeat(3 - attempt.stars)}
+                        <p
+                          className={cn(
+                            "font-[family-name:var(--font-display)] text-lg",
+                            onReleaseDay
+                              ? "text-primary"
+                              : "text-muted-foreground",
+                          )}
+                        >
+                          {"★".repeat(bestStars)}
+                          {"☆".repeat(3 - bestStars)}
                         </p>
-                        <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                          First try
-                        </p>
+                        {showFirstTry ? (
+                          <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                            First try
+                          </p>
+                        ) : !onReleaseDay ? (
+                          <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                            Best
+                          </p>
+                        ) : null}
                       </div>
                     ) : (
                       <Badge
@@ -1524,6 +1584,7 @@ function ResultScreen({
   inningOver,
   walkedOff,
   tiedExtras,
+  tiedExtrasMessage,
   inningLine,
   abLog,
   inningKind,
@@ -1545,6 +1606,7 @@ function ResultScreen({
   inningOver: boolean;
   walkedOff: boolean;
   tiedExtras: boolean;
+  tiedExtrasMessage: string | null;
   inningLine: string | null;
   abLog: AbLogEntry[] | null;
   inningKind: "bot9" | "rewrite" | null;
@@ -1561,11 +1623,12 @@ function ResultScreen({
   const isRewrite = inningKind === "rewrite";
   const historyMoment = sourceMoment ?? (!isInning ? atBat : null);
 
-  // Bot 9 tie → extras always awards ★★☆.
+  // Tie after 3 outs (Bot 9 or rewrite) always awards ★★☆.
   const displayStars = tiedExtras ? 2 : session.stars;
 
   const starsBlurb = tiedExtras
-    ? "Hopefully your team will come through in extras"
+    ? (tiedExtrasMessage ??
+      "Hopefully your team will come through in extras")
     : isRewrite
       ? walkedOff
         ? "You changed how the story ends"

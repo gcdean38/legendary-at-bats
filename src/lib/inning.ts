@@ -138,15 +138,39 @@ export function isWalkOff(state: InningState): boolean {
 }
 
 /**
- * Bot 9: inning ended with the game still knotted (3 outs, score tied).
- * Mid-inning ties keep the rally going — only the third out locks extras.
+ * Bot 9 / rewrite: half ended with the game still knotted (3 outs, score tied).
+ * Mid-inning ties keep the rally going — only the third out locks the partial win
+ * (extras from the bottom, or “finish the comeback” from the top).
  */
-export function isBot9TiedForExtras(state: InningState): boolean {
+export function isTiedForExtras(state: InningState): boolean {
   return (
-    state.kind === "bot9" &&
+    (state.kind === "bot9" || state.kind === "rewrite") &&
     state.outs >= 3 &&
     battingTeamTied(state)
   );
+}
+
+/** @deprecated Use {@link isTiedForExtras} */
+export function isBot9TiedForExtras(state: InningState): boolean {
+  return isTiedForExtras(state);
+}
+
+/** Stars for a finished Bot 9 / rewrite half (walk-off 3 · tie 2 · else last AB). */
+export function inningResultStars(
+  state: InningState,
+  session: AtBatSessionResult,
+): number {
+  if (battingTeamAhead(state)) return 3;
+  if (isTiedForExtras(state)) return 2;
+  return session.stars;
+}
+
+/** Result blurb when the half ends in a tie. */
+export function tiedExtrasBlurb(state: InningState): string {
+  if (state.half === "top") {
+    return "Hopefully your team can finish the comeback";
+  }
+  return "Hopefully your team will come through in extras";
 }
 
 /** Three outs, or batting side already ahead (walk-off). */
@@ -496,8 +520,10 @@ export function inningSummary(state: InningState): string {
     }
     return margin === 1 ? "Took the lead" : `Took the lead · up ${margin}`;
   }
-  if (isBot9TiedForExtras(state)) {
-    return "Tied · hopefully your team will come through in extras";
+  if (isTiedForExtras(state)) {
+    return state.half === "top"
+      ? "Tied · hopefully your team can finish the comeback"
+      : "Tied · hopefully your team will come through in extras";
   }
   if (state.outs >= 3) {
     if (state.kind === "rewrite") {
