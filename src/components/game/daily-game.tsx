@@ -336,17 +336,19 @@ export function DailyGame() {
     }
     setAtBat(next);
     setPlayMode(mode);
-    // Preserve YYYY-MM-DD through Bot 9 / rewrite rally batters.
+    // Preserve YYYY-MM-DD through Bot 9 / rewrite / archive practice replays.
     const nextDateKey =
       opts?.dateKey ??
       (mode === "daily"
         ? easternDateKey(new Date())
-        : mode === "inning"
+        : mode === "inning" ||
+            (mode === "practice" && isDailyDateKey(dateKey))
           ? dateKey
           : next.codename);
     setDateKey(nextDateKey);
     originalDailyRef.current =
-      mode === "daily" && !getFirstDailyAttempt(nextDateKey);
+      mode === "daily" &&
+      !getFirstDailyAttempt(nextDateKey)?.firstTryLocked;
     lockPitchForCursor(next, 0);
     setPhase(opts?.skipSituation ? "pitch_windup" : "situation");
     if (!howToSeenRef.current) {
@@ -916,8 +918,8 @@ export function DailyGame() {
               selectAtBat(
                 source ?? atBat,
                 source ? "practice" : playMode,
-                source
-                  ? undefined
+                isDailyDateKey(dateKey)
+                  ? { dateKey }
                   : playMode === "daily"
                     ? { dateKey }
                     : undefined,
@@ -1038,7 +1040,7 @@ function IntroScreen({
               {daily.batter.name ? `${daily.batter.name} · ` : ""}
               {daily.gameLabel} · {daily.inning}
             </p>
-            {todayAttempt && (
+            {todayAttempt?.firstTryLocked && (
               <p className="mt-2 text-sm text-primary">
                 First try · {"★".repeat(todayAttempt.stars)}
                 {"☆".repeat(3 - todayAttempt.stars)}
@@ -1075,7 +1077,9 @@ function IntroScreen({
           className="h-12 w-full text-base font-semibold tracking-wide"
           onClick={onPlayDaily}
         >
-          {todayAttempt ? "Replay today’s at-bat" : "Today’s at-bat"}
+          {todayAttempt?.firstTryLocked
+            ? "Replay today’s at-bat"
+            : "Today’s at-bat"}
         </Button>
         {bonusAtBat && (
           <Button
@@ -1142,7 +1146,10 @@ function ArchiveScreen({
         <ul className="flex flex-1 flex-col gap-2 overflow-y-auto pb-4">
           {entries.map((entry) => {
             const attempt = attempts[entry.dateKey];
-            const bestStars = attempt?.bestStars ?? attempt?.stars ?? 0;
+            const bestStars = Math.max(
+              attempt?.bestStars ?? 0,
+              attempt?.stars ?? 0,
+            );
             const onReleaseDay = attempt?.bestOnReleaseDay ?? true;
             const showFirstTry =
               !!attempt && isBestStillFirstTry(attempt) && onReleaseDay;

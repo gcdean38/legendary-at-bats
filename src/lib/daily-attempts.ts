@@ -25,13 +25,15 @@ export function completedOnReleaseDay(
 export type DailyFirstAttempt = {
   dateKey: string;
   atBatId: string;
-  /** Locked first-try stars (share / Wordle-style) */
+  /** Locked first-try stars (share / Wordle-style). 0 = no first try locked. */
   stars: number;
   finalPlay: PlayResult;
   endingTitle: string;
-  /** ms since epoch when the first try was locked */
+  /** ms since epoch when the first try was locked (0 if none) */
   completedAt: number;
-  /** Best stars across all tries (defaults to first try for legacy rows) */
+  /** True when a same-day first try was locked via daily play */
+  firstTryLocked: boolean;
+  /** Best stars across all tries */
   bestStars: number;
   bestFinalPlay: PlayResult;
   bestEndingTitle: string;
@@ -50,18 +52,57 @@ const CLEAR_OCT20_ATTEMPTS = [
   "clear-2026-10-20-attempt-v2-springer-pitches",
 ] as const;
 
-function normalizeAttempt(raw: DailyFirstAttempt): DailyFirstAttempt {
-  const completedAt = raw.completedAt ?? Date.now();
-  const bestStars = raw.bestStars ?? raw.stars;
-  const bestFinalPlay = raw.bestFinalPlay ?? raw.finalPlay;
-  const bestEndingTitle = raw.bestEndingTitle ?? raw.endingTitle;
-  const bestCompletedAt = raw.bestCompletedAt ?? completedAt;
-  const bestOnReleaseDay =
-    raw.bestOnReleaseDay ??
-    completedOnReleaseDay(raw.dateKey, bestCompletedAt);
+/** Repair + fill defaults. Best can never be below a locked first try. */
+export function normalizeAttempt(
+  raw: Partial<DailyFirstAttempt> &
+    Pick<DailyFirstAttempt, "dateKey" | "atBatId">,
+): DailyFirstAttempt {
+  const stars = Math.max(0, Number(raw.stars) || 0);
+  const completedAt =
+    typeof raw.completedAt === "number" && raw.completedAt > 0
+      ? raw.completedAt
+      : 0;
+  // Legacy rows (and any row with a real completedAt + stars) are first tries.
+  // Archive-only rows use completedAt: 0 and firstTryLocked: false.
+  const firstTryLocked =
+    raw.firstTryLocked ?? (completedAt > 0 && stars > 0);
+  const rawBest = Number(raw.bestStars);
+  // Never let a corrupt/missing best sit below the locked first try.
+  const bestStars = Math.max(
+    Number.isFinite(rawBest) ? rawBest : 0,
+    firstTryLocked ? stars : 0,
+  );
+  const finalPlay = raw.finalPlay ?? "strikeout";
+  const endingTitle = raw.endingTitle ?? "";
+  // If best was corrupt/below first try, restore best metadata from first try.
+  const repairedFromFirst =
+    firstTryLocked &&
+    completedAt > 0 &&
+    (!Number.isFinite(rawBest) || rawBest < stars);
+  const bestFinalPlay = repairedFromFirst
+    ? finalPlay
+    : (raw.bestFinalPlay ?? finalPlay);
+  const bestEndingTitle = repairedFromFirst
+    ? endingTitle
+    : (raw.bestEndingTitle ?? endingTitle);
+  const bestCompletedAt = repairedFromFirst
+    ? completedAt
+    : typeof raw.bestCompletedAt === "number" && raw.bestCompletedAt > 0
+      ? raw.bestCompletedAt
+      : completedAt || Date.now();
+  const bestOnReleaseDay = repairedFromFirst
+    ? completedOnReleaseDay(raw.dateKey, completedAt)
+    : (raw.bestOnReleaseDay ??
+      completedOnReleaseDay(raw.dateKey, bestCompletedAt));
+
   return {
-    ...raw,
+    dateKey: raw.dateKey,
+    atBatId: raw.atBatId,
+    stars,
+    finalPlay,
+    endingTitle,
     completedAt,
+    firstTryLocked,
     bestStars,
     bestFinalPlay,
     bestEndingTitle,
@@ -94,12 +135,14 @@ function runMigrations(store: AttemptStore): AttemptStore {
     done = [...done, key];
   }
 
-  // Normalize legacy rows missing best* fields.
+  // Normalize / repair every row (best >= first try, fill best* fields).
   for (const [k, v] of Object.entries(next)) {
     const norm = normalizeAttempt(v);
     if (
       norm.bestStars !== v.bestStars ||
-      norm.bestOnReleaseDay !== v.bestOnReleaseDay
+      norm.bestOnReleaseDay !== v.bestOnReleaseDay ||
+      norm.firstTryLocked !== v.firstTryLocked ||
+      norm.stars !== v.stars
     ) {
       next = { ...next, [k]: norm };
       changed = true;
@@ -162,32 +205,50 @@ export function getAllFirstDailyAttempts(): AttemptStore {
  * Seeds best* from the first try. Returns the locked attempt.
  */
 export function saveFirstDailyAttemptIfEmpty(
-  attempt: Omit<
-    DailyFirstAttempt,
-    | "completedAt"
-    | "bestStars"
-    | "bestFinalPlay"
-    | "bestEndingTitle"
-    | "bestCompletedAt"
-    | "bestOnReleaseDay"
-  > & { completedAt?: number },
+  attempt: {
+    dateKey: string;
+    atBatId: string;
+    stars: number;
+    finalPlay: PlayResult;
+    endingTitle: string;
+    completedAt?: number;
+  },
 ): DailyFirstAttempt {
   const store = readStore();
   const existing = store[attempt.dateKey];
-  if (existing) return normalizeAttempt(existing);
+  if (existing?.firstTryLocked || (existing && existing.completedAt > 0)) {
+    return normalizeAttempt(existing);
+  }
   const completedAt = attempt.completedAt ?? Date.now();
+  const stars = Math.max(0, attempt.stars);
+  const prior = existing ? normalizeAttempt(existing) : null;
+  const bestStars = Math.max(prior?.bestStars ?? 0, stars);
   const locked: DailyFirstAttempt = {
     dateKey: attempt.dateKey,
     atBatId: attempt.atBatId,
-    stars: attempt.stars,
+    stars,
     finalPlay: attempt.finalPlay,
     endingTitle: attempt.endingTitle,
     completedAt,
-    bestStars: attempt.stars,
-    bestFinalPlay: attempt.finalPlay,
-    bestEndingTitle: attempt.endingTitle,
-    bestCompletedAt: completedAt,
-    bestOnReleaseDay: completedOnReleaseDay(attempt.dateKey, completedAt),
+    firstTryLocked: true,
+    bestStars,
+    bestFinalPlay:
+      bestStars > (prior?.bestStars ?? -1)
+        ? attempt.finalPlay
+        : (prior?.bestFinalPlay ?? attempt.finalPlay),
+    bestEndingTitle:
+      bestStars > (prior?.bestStars ?? -1)
+        ? attempt.endingTitle
+        : (prior?.bestEndingTitle ?? attempt.endingTitle),
+    bestCompletedAt:
+      bestStars > (prior?.bestStars ?? -1)
+        ? completedAt
+        : (prior?.bestCompletedAt ?? completedAt),
+    bestOnReleaseDay:
+      bestStars > (prior?.bestStars ?? -1)
+        ? completedOnReleaseDay(attempt.dateKey, completedAt)
+        : (prior?.bestOnReleaseDay ??
+          completedOnReleaseDay(attempt.dateKey, completedAt)),
   };
   store[attempt.dateKey] = locked;
   writeStore(store);
@@ -196,7 +257,7 @@ export function saveFirstDailyAttemptIfEmpty(
 
 /**
  * Update the best score for a daily/archive date when this try is better.
- * Creates a first-try row if none exists (archive play before a locked try).
+ * Does not invent a locked first try — archive replays only touch best*.
  */
 export function recordBestDailyAttempt(attempt: {
   dateKey: string;
@@ -207,6 +268,9 @@ export function recordBestDailyAttempt(attempt: {
   completedAt?: number;
 }): DailyFirstAttempt | null {
   if (!isDailyDateKey(attempt.dateKey)) return null;
+  const stars = Math.max(0, Number(attempt.stars) || 0);
+  if (stars <= 0) return getFirstDailyAttempt(attempt.dateKey);
+
   const store = readStore();
   const completedAt = attempt.completedAt ?? Date.now();
   const onDay = completedOnReleaseDay(attempt.dateKey, completedAt);
@@ -215,14 +279,16 @@ export function recordBestDailyAttempt(attempt: {
     : null;
 
   if (!existing) {
+    // Archive-only row — no locked first try.
     const row: DailyFirstAttempt = {
       dateKey: attempt.dateKey,
       atBatId: attempt.atBatId,
-      stars: attempt.stars,
+      stars: 0,
       finalPlay: attempt.finalPlay,
       endingTitle: attempt.endingTitle,
-      completedAt,
-      bestStars: attempt.stars,
+      completedAt: 0,
+      firstTryLocked: false,
+      bestStars: stars,
       bestFinalPlay: attempt.finalPlay,
       bestEndingTitle: attempt.endingTitle,
       bestCompletedAt: completedAt,
@@ -233,14 +299,14 @@ export function recordBestDailyAttempt(attempt: {
     return row;
   }
 
-  if (attempt.stars <= existing.bestStars) {
+  if (stars <= existing.bestStars) {
     return existing;
   }
 
   const next: DailyFirstAttempt = {
     ...existing,
     atBatId: attempt.atBatId,
-    bestStars: attempt.stars,
+    bestStars: stars,
     bestFinalPlay: attempt.finalPlay,
     bestEndingTitle: attempt.endingTitle,
     bestCompletedAt: completedAt,
@@ -255,6 +321,8 @@ export function recordBestDailyAttempt(attempt: {
 export function isBestStillFirstTry(attempt: DailyFirstAttempt): boolean {
   const row = normalizeAttempt(attempt);
   return (
-    row.bestStars === row.stars && row.bestCompletedAt === row.completedAt
+    row.firstTryLocked &&
+    row.bestStars === row.stars &&
+    row.bestCompletedAt === row.completedAt
   );
 }
