@@ -98,6 +98,17 @@ export const REWRITE_LINEUPS: Record<string, RewriteBatter[]> = {
     { name: "Jean Segura", number: 2, bats: "R" },
     { name: "Edmundo Sosa", number: 33, bats: "R" },
   ],
+  /** 2010 NLCS G6 — Howard K looking, Phillies season over */
+  "2010-nlcs6-howard": [
+    { name: "Jayson Werth", number: 28, bats: "R" },
+    { name: "Shane Victorino", number: 8, bats: "S" },
+    { name: "Raul Ibanez", number: 29, bats: "L" },
+    { name: "Carlos Ruiz", number: 51, bats: "R" },
+    { name: "Jimmy Rollins", number: 11, bats: "S" },
+    { name: "Placido Polanco", number: 27, bats: "R" },
+    { name: "Chase Utley", number: 26, bats: "L" },
+    { name: "Ben Francisco", number: 10, bats: "R" },
+  ],
   /** 2019 WS G7 — Astros down 4, Brantley last chance */
   "2019-ws7-houston-4": [
     { name: "George Springer", number: 4, bats: "R" },

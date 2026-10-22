@@ -47,6 +47,7 @@ export const HISTORIC_DATES: Record<string, string> = {
   "2011-ws6-stlouis-23": "2011-10-27", // Freese WS G6
   "2011-ws3-pujols": "2011-10-22", // Pujols WS G3
   "2010-ws5-renteria": "2010-11-01", // Rentería WS G5
+  "2010-nlcs6-howard": "2010-10-23", // Howard NLCS G6 K looking vs Wilson
 
   // 2000s
   "2009-ws6-matsui": "2009-11-04", // Matsui WS G6
