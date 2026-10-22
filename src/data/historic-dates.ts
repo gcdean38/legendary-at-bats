@@ -20,6 +20,7 @@ export const HISTORIC_DATES: Record<string, string> = {
   "2023-ws5-arizona-4": "2023-11-01", // Marte WS G5
   "2023-alcs-texas-5": "2023-10-15", // Seager ALCS G1
   "2022-ws6-philadelphia-3": "2022-11-05", // Harper WS G6
+  "2022-ws5-castellanos": "2022-11-03", // Castellanos WS G5 final out
   "2022-alds-houston-44": "2022-10-11", // Alvarez ALDS G1
   "2021-ws6-houston-27": "2021-11-02", // Altuve WS G6
   "2021-alcs-boston-11": "2021-10-16", // Devers ALCS G2

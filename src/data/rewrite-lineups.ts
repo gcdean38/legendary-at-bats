@@ -87,6 +87,17 @@ export const REWRITE_LINEUPS: Record<string, RewriteBatter[]> = {
     { name: "Alek Thomas", number: 5, bats: "L" },
     { name: "Geraldo Perdomo", number: 2, bats: "S" },
   ],
+  /** 2022 WS G5 — Castellanos last out, Phillies trailing by one */
+  "2022-ws5-castellanos": [
+    { name: "Bryce Harper", number: 3, bats: "L" },
+    { name: "J.T. Realmuto", number: 10, bats: "R" },
+    { name: "Rhys Hoskins", number: 17, bats: "R" },
+    { name: "Kyle Schwarber", number: 12, bats: "L" },
+    { name: "Alec Bohm", number: 28, bats: "R" },
+    { name: "Brandon Marsh", number: 16, bats: "L" },
+    { name: "Jean Segura", number: 2, bats: "R" },
+    { name: "Bryson Stott", number: 5, bats: "L" },
+  ],
   /** 2022 WS G6 — Phillies trailing late */
   "2022-ws6-philadelphia-3": [
     { name: "Nick Castellanos", number: 8, bats: "R" },
