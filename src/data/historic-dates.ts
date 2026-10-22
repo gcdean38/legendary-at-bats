@@ -5,6 +5,7 @@
 export const HISTORIC_DATES: Record<string, string> = {
   // Pre-1980 icons
   "1975-ws6-boston-27": "1975-10-21", // Fisk WS G6 walk-off
+  "1975-ws7-boston-8": "1975-10-22", // Yaz WS G7 final out
 
   // 2020s
   "2025-alcs-toronto-4": "2025-10-20", // Springer ALCS G7

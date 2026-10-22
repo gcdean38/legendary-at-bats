@@ -45,12 +45,14 @@ export type DailyFirstAttempt = {
 type AttemptStore = Record<string, DailyFirstAttempt>;
 
 /**
- * One-shot clears of locked Oct 20 attempts (moment / pitch-script swaps).
+ * One-shot clears of locked daily attempts when the moment swaps.
  */
-const CLEAR_OCT20_ATTEMPTS = [
-  "clear-2026-10-20-attempt",
-  "clear-2026-10-20-attempt-v2-springer-pitches",
-] as const;
+const CLEAR_ATTEMPT_MIGRATIONS: { id: string; dateKey: string }[] = [
+  { id: "clear-2026-10-20-attempt", dateKey: "2026-10-20" },
+  { id: "clear-2026-10-20-attempt-v2-springer-pitches", dateKey: "2026-10-20" },
+  // Oct 22 daily swapped Brantley → Yaz WS G7 last out
+  { id: "clear-2026-10-22-attempt-yaz", dateKey: "2026-10-22" },
+];
 
 /** Repair + fill defaults. Best can never be below a locked first try. */
 export function normalizeAttempt(
@@ -125,14 +127,14 @@ function runMigrations(store: AttemptStore): AttemptStore {
   let next = store;
   let changed = false;
 
-  for (const key of CLEAR_OCT20_ATTEMPTS) {
-    if (done.includes(key)) continue;
-    if (next["2026-10-20"]) {
-      const { ["2026-10-20"]: _removed, ...rest } = next;
+  for (const { id, dateKey } of CLEAR_ATTEMPT_MIGRATIONS) {
+    if (done.includes(id)) continue;
+    if (next[dateKey]) {
+      const { [dateKey]: _removed, ...rest } = next;
       next = rest;
       changed = true;
     }
-    done = [...done, key];
+    done = [...done, id];
   }
 
   // Normalize / repair every row (best >= first try, fill best* fields).

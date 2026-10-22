@@ -10,6 +10,17 @@ export type RewriteBatter = {
 };
 
 export const REWRITE_LINEUPS: Record<string, RewriteBatter[]> = {
+  /** 1975 WS G7 — Yaz last out, Red Sox trailing by one */
+  "1975-ws7-boston-8": [
+    { name: "Carlton Fisk", number: 27, bats: "R" },
+    { name: "Fred Lynn", number: 19, bats: "L" },
+    { name: "Rico Petrocelli", number: 6, bats: "R" },
+    { name: "Dwight Evans", number: 24, bats: "R" },
+    { name: "Rick Burleson", number: 7, bats: "R" },
+    { name: "Denny Doyle", number: 5, bats: "L" },
+    { name: "Bernie Carbo", number: 1, bats: "L" },
+    { name: "Cecil Cooper", number: 17, bats: "L" },
+  ],
   /** 2025 WS G7 — Kirk GIDP, Blue Jays trailing late */
   "2025-ws7-toronto-30": [
     { name: "Vladimir Guerrero Jr.", number: 27, bats: "R" },
