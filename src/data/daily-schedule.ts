@@ -1,11 +1,11 @@
 /**
  * Frozen Eastern YYYY-MM-DD → at-bat id for every published daily.
  *
- * Through 2026-11-03: curated on-this-day picks (real game month–day), with a
- * few intentional rewrite / change-history moments mixed in. Oct 14–19 also
- * keep early-archive pins that are not all on-this-day.
+ * Through 2026-11-05: curated on-this-day picks (real game month–day), with a
+ * few intentional rewrite / change-history moments mixed in. Oct 14–18 also
+ * keep early-archive pins (some not on-this-day).
  *
- * After 2026-11-03: do not add rows here for “random” days — `getDailyAtBat`
+ * After 2026-11-05: do not add rows here for “random” days — `getDailyAtBat`
  * hashes among catalog ids not already used in this schedule.
  *
  * Rules:
@@ -13,17 +13,17 @@
  * - Swap only with an intentional migration + clear-* attempt wipe.
  */
 export const DAILY_SCHEDULE: Record<string, string> = {
-  // ——— Early archive (mostly pre on-this-day window) ———
+  // ——— Early archive ———
   "2026-10-14": "2023-ws1-texas-53", // Adolis Garcia WS G1 walk-off
-  "2026-10-15": "2022-ws6-philadelphia-3", // Bryce Harper WS G6 K (rewrite)
-  "2026-10-16": "2001-ws7-arizona-20", // Luis Gonzalez walk-off single
+  // Was Harper / Gonzalez — moved to their real Nov 5 / Nov 4 dates
+  "2026-10-15": "2023-alcs-texas-5", // Corey Seager ALCS G1 (on-this-day sub)
+  "2026-10-16": "2003-alcs7-newyork-17", // Aaron Boone ALCS G7 (on-this-day sub)
   "2026-10-17": "1988-ws1-gibson", // Kirk Gibson WS G1
   "2026-10-18": "1996-ws4-leyritz", // Jim Leyritz WS G4
-  // True Oct 19: Altuve ALCS walk-off (Sandoval moved to 10-24, his real date)
   "2026-10-19": "2019-alcs-houston-27", // Jose Altuve ALCS G6 walk-off
   "2026-10-20": "2025-alcs-toronto-4", // George Springer ALCS G7 (on-this-day)
 
-  // ——— On-this-day window through Nov 3 ———
+  // ——— On-this-day window through Nov 5 ———
   "2026-10-21": "1975-ws6-boston-27", // Fisk WS G6
   "2026-10-22": "2005-ws1-houston-5", // Bagwell WS G1 K (rewrite)
   "2026-10-23": "2010-nlcs6-howard", // Ryan Howard NLCS G6 K looking (rewrite; Carter stays in catalog)
@@ -38,7 +38,9 @@ export const DAILY_SCHEDULE: Record<string, string> = {
   "2026-11-01": "2025-ws7-toronto-30", // Alejandro Kirk WS G7 GIDP (rewrite)
   "2026-11-02": "2016-ws7-cleveland-1", // Michael Martinez WS G7 — Cubs/Indians rewrite
   "2026-11-03": "2022-ws5-castellanos", // Castellanos WS G5 final out (rewrite; was grounder to Peña)
+  "2026-11-04": "2001-ws7-arizona-20", // Luis Gonzalez WS G7 walk-off (moved from Oct 16)
+  "2026-11-05": "2022-ws6-philadelphia-3", // Bryce Harper WS G6 K (moved from Oct 15)
 };
 
 /** Last Eastern day that is fully pre-scheduled above. */
-export const DAILY_SCHEDULE_END = "2026-11-03";
+export const DAILY_SCHEDULE_END = "2026-11-05";
