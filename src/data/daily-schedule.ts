@@ -1,11 +1,11 @@
 /**
  * Frozen Eastern YYYY-MM-DD → at-bat id for every published daily.
  *
- * Through 2026-11-01: curated on-this-day picks (real game month–day), with a
+ * Through 2026-11-02: curated on-this-day picks (real game month–day), with a
  * few intentional rewrite / change-history moments mixed in. Oct 14–19 also
  * keep early-archive pins that are not all on-this-day.
  *
- * After 2026-11-01: do not add rows here for “random” days — `getDailyAtBat`
+ * After 2026-11-02: do not add rows here for “random” days — `getDailyAtBat`
  * hashes among catalog ids not already used in this schedule.
  *
  * Rules:
@@ -23,7 +23,7 @@ export const DAILY_SCHEDULE: Record<string, string> = {
   "2026-10-19": "2019-alcs-houston-27", // Jose Altuve ALCS G6 walk-off
   "2026-10-20": "2025-alcs-toronto-4", // George Springer ALCS G7 (on-this-day)
 
-  // ——— On-this-day window through Nov 1 ———
+  // ——— On-this-day window through Nov 2 ———
   "2026-10-21": "1975-ws6-boston-27", // Fisk WS G6
   "2026-10-22": "2005-ws1-houston-5", // Bagwell WS G1 K (rewrite)
   "2026-10-23": "2010-nlcs6-howard", // Ryan Howard NLCS G6 K looking (rewrite; Carter stays in catalog)
@@ -36,7 +36,8 @@ export const DAILY_SCHEDULE: Record<string, string> = {
   "2026-10-30": "2024-ws5-newyork-99", // Aaron Judge WS G5 K (rewrite)
   "2026-10-31": "2001-ws4-newyork-2", // Derek Jeter WS G4 Mr. November
   "2026-11-01": "2025-ws7-toronto-30", // Alejandro Kirk WS G7 GIDP (rewrite)
+  "2026-11-02": "2016-ws7-cleveland-1", // Michael Martinez WS G7 — Cubs/Indians rewrite
 };
 
 /** Last Eastern day that is fully pre-scheduled above. */
-export const DAILY_SCHEDULE_END = "2026-11-01";
+export const DAILY_SCHEDULE_END = "2026-11-02";
