@@ -1145,7 +1145,10 @@ function ArchiveScreen({
       ) : (
         <ul className="flex flex-1 flex-col gap-2 overflow-y-auto pb-4">
           {entries.map((entry) => {
-            const attempt = attempts[entry.dateKey];
+            const raw = attempts[entry.dateKey];
+            // Ignore scores locked against a different moment (hash drift).
+            const attempt =
+              raw && raw.atBatId === entry.atBat.id ? raw : undefined;
             const bestStars = Math.max(
               attempt?.bestStars ?? 0,
               attempt?.stars ?? 0,

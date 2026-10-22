@@ -7,6 +7,10 @@ import { CONTEMPORARY_ERA_EXPANSION } from "@/data/legendary-era-expansion";
  * real player/venue names (no logos). Pitch sequences are stylized for
  * gameplay; after the script, later pitches are drawn from that pitcher's
  * arsenal with fresh locations.
+ *
+ * Daily/archive date → id mapping lives in daily-schedule.ts, not here.
+ * Adding or reordering entries must not change published dateKeys — pin
+ * every shipped day in DAILY_SCHEDULE (hash fallback is for future days only).
  */
 export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
   {

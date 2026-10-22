@@ -53,6 +53,10 @@ const CLEAR_ATTEMPT_MIGRATIONS: { id: string; dateKey: string }[] = [
   // Oct 22 daily swaps (Brantley → Yaz → Bagwell)
   { id: "clear-2026-10-22-attempt-yaz", dateKey: "2026-10-22" },
   { id: "clear-2026-10-22-attempt-bagwell", dateKey: "2026-10-22" },
+  // Freeze schedule restore after catalog-hash drift (Seager/Muncy/Brosius → pinned)
+  { id: "clear-2026-10-14-attempt-schedule-freeze", dateKey: "2026-10-14" },
+  { id: "clear-2026-10-15-attempt-schedule-freeze", dateKey: "2026-10-15" },
+  { id: "clear-2026-10-19-attempt-schedule-freeze", dateKey: "2026-10-19" },
 ];
 
 /** Repair + fill defaults. Best can never be below a locked first try. */

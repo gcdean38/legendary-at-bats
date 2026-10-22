@@ -1,3 +1,4 @@
+import { DAILY_SCHEDULE } from "@/data/daily-schedule";
 import { HISTORIC_DATES } from "@/data/historic-dates";
 import { LEGENDARY_AT_BATS } from "@/data/legendary-at-bats";
 import { playResultLabel } from "@/lib/contact";
@@ -52,20 +53,11 @@ function hashString(input: string): number {
 }
 
 /**
- * Optional pinned dailies by Eastern YYYY-MM-DD.
- * Unlisted days fall through to the hash rotation.
+ * Published dailies by Eastern YYYY-MM-DD.
+ * Source of truth: {@link DAILY_SCHEDULE}. Unlisted future days fall through
+ * to same-day / hash rotation — pin them in the schedule the day they ship.
  */
-const DAILY_OVERRIDES: Record<string, string> = {
-  "2026-10-16": "2001-ws7-arizona-20", // Luis Gonzalez walk-off single
-  // Hash had rotated Springer here; swap to Leyritz so archive isn’t Springer twice.
-  "2026-10-18": "1996-ws4-leyritz",
-  // One year ago today: Springer ALCS G7 HR. Leyritz is a same-day bonus tile only.
-  "2026-10-20": "2025-alcs-toronto-4",
-  // On this day 1975: Fisk waves it fair. (Skip Judge ALCS G7 K — already daily’d.)
-  "2026-10-21": "1975-ws6-boston-27",
-  // On this day 2005: Bagwell vs Jenks, WS G1 — rewrite the eighth-inning K.
-  "2026-10-22": "2005-ws1-houston-5",
-};
+const DAILY_OVERRIDES: Record<string, string> = DAILY_SCHEDULE;
 
 /**
  * One-day home bonus (2026-10-20 only): extra “Play the Leyritz at bat” tile.
@@ -143,6 +135,18 @@ export function getDailyAtBat(date: Date): {
     if (index >= 0) {
       return { atBat: list[index]!, dateKey, index };
     }
+  }
+
+  // Past archive days must be pinned — hashing here is what caused drift when
+  // the catalog grew. Fail loud in dev so we pin before shipping.
+  if (
+    process.env.NODE_ENV !== "production" &&
+    dateKey >= DAILY_HISTORY_START &&
+    dateKey < easternDateKey(new Date())
+  ) {
+    console.error(
+      `[daily] ${dateKey} is an archive day but missing from DAILY_SCHEDULE — pin it before catalog changes.`,
+    );
   }
 
   if (inSameDayWindow(dateKey)) {
