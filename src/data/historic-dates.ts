@@ -69,6 +69,7 @@ export const HISTORIC_DATES: Record<string, string> = {
   "1999-nlcs5-ventura": "1999-10-17", // Ventura NLCS G5
   "1997-ws7-renteria": "1997-10-26", // Rentería WS G7
   "1996-ws4-leyritz": "1996-10-23", // Leyritz WS G4
+  "1995-ws6-justice": "1995-10-28", // Justice WS G6 clinching HR
   "1995-alds5-martinez": "1995-10-08", // Edgar ALDS G5
   "1993-ws6-carter": "1993-10-23", // Carter WS G6
   "1992-nlcs7-cabrera": "1992-10-14", // Cabrera NLCS G7

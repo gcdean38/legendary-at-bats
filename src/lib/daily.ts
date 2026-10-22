@@ -1,4 +1,7 @@
-import { DAILY_SCHEDULE } from "@/data/daily-schedule";
+import {
+  DAILY_SCHEDULE,
+  DAILY_SCHEDULE_END,
+} from "@/data/daily-schedule";
 import { HISTORIC_DATES } from "@/data/historic-dates";
 import { LEGENDARY_AT_BATS } from "@/data/legendary-at-bats";
 import { playResultLabel } from "@/lib/contact";
@@ -12,10 +15,12 @@ export const SOCIAL_X_URL = "https://x.com/legendaryatbats";
 
 /**
  * Inclusive Eastern window: prefer moments that historically fell on
- * this calendar day (month–day). Outside the window, use hash rotation.
+ * this calendar day (month–day). Only used as a fallback when a day is
+ * missing from {@link DAILY_SCHEDULE}. Through {@link DAILY_SCHEDULE_END}
+ * every day should be pinned; after that, unused-catalog hash applies.
  */
 export const SAME_DAY_DAILY_START = "2026-10-21";
-export const SAME_DAY_DAILY_END = "2026-11-01";
+export const SAME_DAY_DAILY_END = DAILY_SCHEDULE_END;
 
 /**
  * US Eastern calendar date as YYYY-MM-DD.
@@ -149,6 +154,7 @@ export function getDailyAtBat(date: Date): {
     );
   }
 
+  // Fallback inside the curated window only (schedule should already cover it).
   if (inSameDayWindow(dateKey)) {
     const sameDay = momentsOnCalendarDay(dateKey);
     if (sameDay.length > 0) {
@@ -161,8 +167,15 @@ export function getDailyAtBat(date: Date): {
     }
   }
 
-  const index = hashString(`legendary-at-bats:${dateKey}`) % list.length;
-  return { atBat: list[index]!, dateKey, index };
+  // After the pinned window: deterministic pick from moments not yet scheduled.
+  const scheduledIds = new Set(Object.values(DAILY_SCHEDULE));
+  const remaining = list.filter((ab) => !scheduledIds.has(ab.id));
+  const pool = remaining.length > 0 ? remaining : list;
+  const poolIndex =
+    hashString(`legendary-at-bats:remaining:${dateKey}`) % pool.length;
+  const pick = pool[poolIndex]!;
+  const index = list.findIndex((ab) => ab.id === pick.id);
+  return { atBat: pick, dateKey, index: index >= 0 ? index : 0 };
 }
 
 export type DailyHistoryEntry = {

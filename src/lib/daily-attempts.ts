@@ -57,6 +57,8 @@ const CLEAR_ATTEMPT_MIGRATIONS: { id: string; dateKey: string }[] = [
   { id: "clear-2026-10-14-attempt-schedule-freeze", dateKey: "2026-10-14" },
   { id: "clear-2026-10-15-attempt-schedule-freeze", dateKey: "2026-10-15" },
   { id: "clear-2026-10-19-attempt-schedule-freeze", dateKey: "2026-10-19" },
+  // Sandoval moved to on-this-day 10-24; 10-19 is now Altuve
+  { id: "clear-2026-10-19-attempt-altuve", dateKey: "2026-10-19" },
 ];
 
 /** Repair + fill defaults. Best can never be below a locked first try. */
