@@ -21,6 +21,17 @@ export const REWRITE_LINEUPS: Record<string, RewriteBatter[]> = {
     { name: "Bernie Carbo", number: 1, bats: "L" },
     { name: "Cecil Cooper", number: 17, bats: "L" },
   ],
+  /** 2005 WS G1 — Bagwell K, Astros trailing with traffic on */
+  "2005-ws1-houston-5": [
+    { name: "Jason Lane", number: 16, bats: "R" },
+    { name: "Brad Ausmus", number: 11, bats: "R" },
+    { name: "Adam Everett", number: 28, bats: "R" },
+    { name: "Craig Biggio", number: 7, bats: "R" },
+    { name: "Willy Taveras", number: 1, bats: "R" },
+    { name: "Lance Berkman", number: 17, bats: "S" },
+    { name: "Morgan Ensberg", number: 14, bats: "R" },
+    { name: "Mike Lamb", number: 25, bats: "L" },
+  ],
   /** 2025 WS G7 — Kirk GIDP, Blue Jays trailing late */
   "2025-ws7-toronto-30": [
     { name: "Vladimir Guerrero Jr.", number: 27, bats: "R" },

@@ -63,8 +63,8 @@ const DAILY_OVERRIDES: Record<string, string> = {
   "2026-10-20": "2025-alcs-toronto-4",
   // On this day 1975: Fisk waves it fair. (Skip Judge ALCS G7 K — already daily’d.)
   "2026-10-21": "1975-ws6-boston-27",
-  // On this day 1975: Yaz’s last-out fly ball — rewrite the Series ending.
-  "2026-10-22": "1975-ws7-boston-8",
+  // On this day 2005: Bagwell vs Jenks, WS G1 — rewrite the eighth-inning K.
+  "2026-10-22": "2005-ws1-houston-5",
 };
 
 /**

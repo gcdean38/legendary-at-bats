@@ -50,8 +50,9 @@ type AttemptStore = Record<string, DailyFirstAttempt>;
 const CLEAR_ATTEMPT_MIGRATIONS: { id: string; dateKey: string }[] = [
   { id: "clear-2026-10-20-attempt", dateKey: "2026-10-20" },
   { id: "clear-2026-10-20-attempt-v2-springer-pitches", dateKey: "2026-10-20" },
-  // Oct 22 daily swapped Brantley → Yaz WS G7 last out
+  // Oct 22 daily swaps (Brantley → Yaz → Bagwell)
   { id: "clear-2026-10-22-attempt-yaz", dateKey: "2026-10-22" },
+  { id: "clear-2026-10-22-attempt-bagwell", dateKey: "2026-10-22" },
 ];
 
 /** Repair + fill defaults. Best can never be below a locked first try. */
