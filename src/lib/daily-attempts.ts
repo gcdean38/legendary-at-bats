@@ -59,9 +59,10 @@ const CLEAR_ATTEMPT_MIGRATIONS: { id: string; dateKey: string }[] = [
   { id: "clear-2026-10-19-attempt-schedule-freeze", dateKey: "2026-10-19" },
   // Sandoval moved to on-this-day 10-24; 10-19 is now Altuve
   { id: "clear-2026-10-19-attempt-altuve", dateKey: "2026-10-19" },
-  // Gonzalez → Nov 4, Harper → Nov 5; archive slots get Seager / Boone
+  // Gonzalez → Nov 4, Harper → Nov 5; archive slots get Seager / Ishikawa
   { id: "clear-2026-10-15-attempt-harper-to-seager", dateKey: "2026-10-15" },
   { id: "clear-2026-10-16-attempt-gonzalez-to-boone", dateKey: "2026-10-16" },
+  { id: "clear-2026-10-16-attempt-boone-to-ishikawa", dateKey: "2026-10-16" },
 ];
 
 /** Repair + fill defaults. Best can never be below a locked first try. */

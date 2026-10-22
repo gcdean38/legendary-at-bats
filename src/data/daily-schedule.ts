@@ -17,7 +17,7 @@ export const DAILY_SCHEDULE: Record<string, string> = {
   "2026-10-14": "2023-ws1-texas-53", // Adolis Garcia WS G1 walk-off
   // Was Harper / Gonzalez — moved to their real Nov 5 / Nov 4 dates
   "2026-10-15": "2023-alcs-texas-5", // Corey Seager ALCS G1 (on-this-day sub)
-  "2026-10-16": "2003-alcs7-newyork-17", // Aaron Boone ALCS G7 (on-this-day sub)
+  "2026-10-16": "2014-nlcs5-ishikawa", // Travis Ishikawa NLCS G5 walk-off (Boone held for offseason)
   "2026-10-17": "1988-ws1-gibson", // Kirk Gibson WS G1
   "2026-10-18": "1996-ws4-leyritz", // Jim Leyritz WS G4
   "2026-10-19": "2019-alcs-houston-27", // Jose Altuve ALCS G6 walk-off
