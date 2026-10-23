@@ -1108,11 +1108,35 @@ function IntroScreen({
             </span>
           </Button>
         )}
-        <p className="mx-auto max-w-sm pt-4 text-center text-[11px] leading-relaxed text-muted-foreground/80">
-          This site is an independent historical baseball game and is not
-          affiliated with, sponsored by, or endorsed by Major League Baseball
-          or any MLB club.
-        </p>
+        <div className="mx-auto max-w-sm space-y-2 pt-4 text-center text-[11px] leading-relaxed text-muted-foreground/80">
+          <p>
+            See a bug? Hoping to replay an at bat that was memorable for you?
+            Contact{" "}
+            <a
+              href={SOCIAL_X_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-flood/90 underline-offset-2 transition hover:text-primary hover:underline"
+            >
+              @legendaryatbats
+            </a>{" "}
+            on Twitter/X or{" "}
+            <a
+              href="https://bsky.app/profile/geoffreycdean.bsky.social"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-flood/90 underline-offset-2 transition hover:text-primary hover:underline"
+            >
+              @geoffreycdean.bsky.social
+            </a>{" "}
+            on Bluesky.
+          </p>
+          <p>
+            This site is an independent historical baseball game and is not
+            affiliated with, sponsored by, or endorsed by Major League Baseball
+            or any MLB club.
+          </p>
+        </div>
       </div>
     </section>
   );
