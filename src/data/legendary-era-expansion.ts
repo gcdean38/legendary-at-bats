@@ -348,16 +348,16 @@ export const CONTEMPORARY_ERA_EXPANSION: LegendaryAtBat[] = [
     gameLabel: "Game 6",
     inning: "Bottom 9",
     venue: "SkyDome",
-    outs: 0,
+    outs: 1,
     away: { abbr: "PHI", runs: 6 },
     home: { abbr: "TOR", runs: 5 },
-    bases: { first: true, second: false, third: false },
-    runners: "Runner on first",
+    bases: { first: true, second: true, third: false },
+    runners: "Runners on first and second",
     batter: { name: "Joe Carter", team: "Blue Jays", number: 29, bats: "R" },
     pitcher: { name: "Mitch Williams", team: "Phillies", number: 99, throws: "L" },
     situationBlurb:
-      "World Series Game 6 at SkyDome. Down one in the ninth, runner on. You are Joe Carter.",
-    stakes: "Touch ’em all — a walk-off crowns a repeat champion.",
+      "World Series Game 6 at SkyDome. Down one in the ninth, one out, Henderson and Molitor aboard. You are Joe Carter.",
+    stakes: "A three-run shot walks it off — touch ’em all, and Toronto repeats.",
     pitches: pitches("tor29", {
       type: "FF",
       speedMph: 93,
@@ -371,13 +371,13 @@ export const CONTEMPORARY_ERA_EXPANSION: LegendaryAtBat[] = [
       location: { x: 0.48, y: 0.48 },
       inZone: true,
       expectedDecision: "swing",
-      approachCue: "Breaking ball that hangs. Jump it.",
+      approachCue: "Hanging slider. Jump it — three runs win it.",
     }),
     historical: {
       outcome: "home_run",
       batterSucceeded: true,
       summary:
-        "Joe Carter walked off World Series Game 6 at SkyDome with a three-run blast — touch ’em all, Blue Jays repeat.",
+        "Joe Carter’s three-run walk-off homer off Mitch Williams won World Series Game 6 at SkyDome — touch ’em all, Blue Jays repeat.",
     },
   },
   {

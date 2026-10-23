@@ -26,7 +26,7 @@ export const DAILY_SCHEDULE: Record<string, string> = {
   // ——— On-this-day window through Nov 5 ———
   "2026-10-21": "1975-ws6-boston-27", // Fisk WS G6
   "2026-10-22": "2005-ws1-houston-5", // Bagwell WS G1 K (rewrite)
-  "2026-10-23": "1993-ws6-carter", // Joe Carter WS G6 walk-off (Howard stays in catalog for remaining pool)
+  "2026-10-23": "1993-ws6-carter", // Joe Carter WS G6 three-run walk-off HR (Howard in remaining pool)
   "2026-10-24": "2012-ws1-sandoval", // Pablo Sandoval WS G1 (Giants)
   "2026-10-25": "1986-ws6-wilson", // Mookie Wilson WS G6 (change-history)
   "2026-10-26": "1991-ws6-puckett", // Kirby Puckett WS G6 walk-off

@@ -65,6 +65,7 @@ const CLEAR_ATTEMPT_MIGRATIONS: { id: string; dateKey: string }[] = [
   { id: "clear-2026-10-16-attempt-boone-to-ishikawa", dateKey: "2026-10-16" },
   // Oct 23: Howard → Carter
   { id: "clear-2026-10-23-attempt-howard-to-carter", dateKey: "2026-10-23" },
+  { id: "clear-2026-10-23-attempt-carter-three-run", dateKey: "2026-10-23" },
 ];
 
 /** Repair + fill defaults. Best can never be below a locked first try. */
