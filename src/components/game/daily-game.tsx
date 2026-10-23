@@ -1108,6 +1108,11 @@ function IntroScreen({
             </span>
           </Button>
         )}
+        <p className="mx-auto max-w-sm pt-4 text-center text-[11px] leading-relaxed text-muted-foreground/80">
+          This site is an independent historical baseball game and is not
+          affiliated with, sponsored by, or endorsed by Major League Baseball
+          or any MLB club.
+        </p>
       </div>
     </section>
   );
