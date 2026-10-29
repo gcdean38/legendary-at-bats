@@ -1060,13 +1060,13 @@ export const LEGENDARY_AT_BATS: LegendaryAtBat[] = [
     outs: 2,
     away: { abbr: "LAD", runs: 12 },
     home: { abbr: "HOU", runs: 12 },
-    bases: { first: true, second: false, third: false },
-    runners: "Runner on first",
+    bases: { first: true, second: true, third: false },
+    runners: "Runners on first and second",
     batter: { name: "Alex Bregman", team: "Astros", number: 2, bats: "R" },
     pitcher: { name: "Kenley Jansen", team: "Dodgers", number: 74, throws: "R" },
     situationBlurb:
-      "A 12–12 street fight in World Series Game 5 extras at Minute Maid Park. Two outs. You are Alex Bregman.",
-    stakes: "End the longest Fall Classic slugfest of the decade.",
+      "A 12–12 street fight in World Series Game 5 extras at Minute Maid Park. Two outs, Fisher on second and Springer on first. You are Alex Bregman.",
+    stakes: "A hit ends the longest Fall Classic slugfest of the decade.",
     pitches: [
       {
         id: "h2-p1",
