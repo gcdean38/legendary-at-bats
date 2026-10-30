@@ -72,6 +72,8 @@ const CLEAR_ATTEMPT_MIGRATIONS: { id: string; dateKey: string }[] = [
   { id: "clear-2026-10-30-attempt-verdugo", dateKey: "2026-10-30" },
   // Share-result fix — fresh scored try for today’s Verdugo daily
   { id: "clear-2026-10-30-attempt-share-fix", dateKey: "2026-10-30" },
+  // First-try lock deferred until rewrite finishes (share used intermediate ★)
+  { id: "clear-2026-10-30-attempt-rewrite-share-stars", dateKey: "2026-10-30" },
 ];
 
 /** Repair + fill defaults. Best can never be below a locked first try. */

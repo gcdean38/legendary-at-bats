@@ -237,6 +237,7 @@ export function finalizeSession(opts: {
     opts.atBat.bases,
     finalPlay,
     opts.atBat.outs,
+    last?.contactQuality,
   );
   const narrative = resolveEndingNarrative({
     atBat: opts.atBat,

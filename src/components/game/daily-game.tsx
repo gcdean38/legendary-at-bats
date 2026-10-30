@@ -164,6 +164,12 @@ export function DailyGame() {
   const inningPopTimerRef = useRef<number | null>(null);
   /** True when this daily AB is the player's first try for dateKey. */
   const originalDailyRef = useRef(false);
+  /**
+   * First-try session still open (incl. through rewrite). Stays true when
+   * mode flips to "inning" for a rewrite rally so we lock only after the
+   * finished AB session — not the intermediate “reach base → keep going” play.
+   */
+  const pendingFirstTryRef = useRef(false);
   /** Bumps when a first daily attempt is locked so home/archive re-read storage. */
   const [attemptsTick, setAttemptsTick] = useState(0);
 
@@ -346,9 +352,18 @@ export function DailyGame() {
           ? dateKey
           : next.codename);
     setDateKey(nextDateKey);
-    originalDailyRef.current =
-      mode === "daily" &&
-      !getFirstDailyAttempt(nextDateKey)?.firstTryLocked;
+    if (mode === "daily") {
+      const open =
+        !getFirstDailyAttempt(nextDateKey)?.firstTryLocked;
+      originalDailyRef.current = open;
+      pendingFirstTryRef.current = open;
+    } else if (mode !== "inning") {
+      originalDailyRef.current = false;
+      pendingFirstTryRef.current = false;
+    } else {
+      // Rewrite / Bot 9 batter: keep pendingFirstTryRef through the rally.
+      originalDailyRef.current = false;
+    }
     lockPitchForCursor(next, 0);
     setPhase(opts?.skipSituation ? "pitch_windup" : "situation");
     if (!howToSeenRef.current) {
@@ -367,6 +382,8 @@ export function DailyGame() {
   /** Fresh bottom of the 9th — easy/medium/hard deficit, empty bases. */
   function startInning(difficulty: Bot9Difficulty = "medium") {
     clearInningState();
+    // Bot 9 is never the daily first-try session.
+    pendingFirstTryRef.current = false;
     const dealt = dealNextAtBat(createInning(difficulty));
     inningRef.current = dealt.state;
     setInningSnap(dealt.state);
@@ -506,6 +523,22 @@ export function DailyGame() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, ballProgress, pitchCursor]);
 
+  function lockPendingFirstTry(attempt: {
+    dateKey: string;
+    atBatId: string;
+    stars: number;
+    finalPlay: AtBatSessionResult["finalPlay"];
+    endingTitle: string;
+  }) {
+    if (!pendingFirstTryRef.current || !isDailyDateKey(attempt.dateKey)) {
+      return;
+    }
+    saveFirstDailyAttemptIfEmpty(attempt);
+    pendingFirstTryRef.current = false;
+    originalDailyRef.current = false;
+    setAttemptsTick((n) => n + 1);
+  }
+
   function endAtBat(reason: AtBatEndReason, finalCount: CountState) {
     if (!atBat) return;
     startTransition(() => {
@@ -528,18 +561,6 @@ export function DailyGame() {
         verdict: final.historyVerdict,
         end_reason: reason,
       });
-
-      // Lock the first daily try only — replays never overwrite first-try.
-      if (playMode === "daily" && originalDailyRef.current) {
-        saveFirstDailyAttemptIfEmpty({
-          dateKey: final.dateKey,
-          atBatId: atBat.id,
-          stars: final.stars,
-          finalPlay: final.finalPlay,
-          endingTitle: final.endingTitle,
-        });
-        setAttemptsTick((n) => n + 1);
-      }
 
       if (inningRef.current) {
         const next = advanceInning(
@@ -573,14 +594,24 @@ export function DailyGame() {
           return;
         }
 
-        // Finished Bot 9 / rewrite half — persist best for archive date keys.
+        // Finished Bot 9 / rewrite half — lock first try + best from final stars.
         if (isDailyDateKey(dateKey) && next.kind === "rewrite") {
+          const stars = inningResultStars(next, final);
+          const endingTitle = inningSummary(next);
+          const atBatId = next.sourceMomentId ?? atBat.id;
+          lockPendingFirstTry({
+            dateKey,
+            atBatId,
+            stars,
+            finalPlay: final.finalPlay,
+            endingTitle,
+          });
           recordBestDailyAttempt({
             dateKey,
-            atBatId: next.sourceMomentId ?? atBat.id,
-            stars: inningResultStars(next, final),
+            atBatId,
+            stars,
             finalPlay: final.finalPlay,
-            endingTitle: inningSummary(next),
+            endingTitle,
           });
           setAttemptsTick((n) => n + 1);
         }
@@ -590,11 +621,24 @@ export function DailyGame() {
         return;
       }
 
-      // Losing-team legendary: offer to keep rewriting history
+      // Losing-team legendary: offer to keep rewriting history.
+      // Do NOT lock first-try yet — share/archive must use the finished
+      // rewrite session (or the decline path), not this unlock play.
       if (shouldOfferRewriteContinue(atBat, final)) {
         setInningPop(null);
         setPhase("rewrite_offer");
         return;
+      }
+
+      // Completed single-AB first try (no rewrite) — lock now.
+      if (playMode === "daily") {
+        lockPendingFirstTry({
+          dateKey: final.dateKey,
+          atBatId: atBat.id,
+          stars: final.stars,
+          finalPlay: final.finalPlay,
+          endingTitle: final.endingTitle,
+        });
       }
 
       // Single-AB daily / archive practice — keep best score up to date.
@@ -626,6 +670,24 @@ export function DailyGame() {
   }
 
   function declineRewriteContinue() {
+    // Stopping at the unlock play — that AB is the finished first try.
+    if (session && atBat && isDailyDateKey(dateKey)) {
+      lockPendingFirstTry({
+        dateKey: session.dateKey,
+        atBatId: atBat.id,
+        stars: session.stars,
+        finalPlay: session.finalPlay,
+        endingTitle: session.endingTitle,
+      });
+      recordBestDailyAttempt({
+        dateKey: session.dateKey,
+        atBatId: atBat.id,
+        stars: session.stars,
+        finalPlay: session.finalPlay,
+        endingTitle: session.endingTitle,
+      });
+      setAttemptsTick((n) => n + 1);
+    }
     setPhase("result");
   }
 
@@ -1718,8 +1780,8 @@ function ResultScreen({
   const isRewrite = inningKind === "rewrite";
   const historyMoment = sourceMoment ?? (!isInning ? atBat : null);
 
-  // Tie after 3 outs (Bot 9 or rewrite) always awards ★★☆.
-  const displayStars = tiedExtras ? 2 : session.stars;
+  // Walk-off ★★★ · tie after 3 outs ★★☆ · else last-AB stars.
+  const displayStars = walkedOff ? 3 : tiedExtras ? 2 : session.stars;
 
   const starsBlurb = tiedExtras
     ? (tiedExtrasMessage ??

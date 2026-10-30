@@ -95,10 +95,18 @@ export function playerIdentity(person: {
   return `${person.team} #${person.number}`;
 }
 
+/**
+ * Contact quality at/above which a single scores the runner from second
+ * (R1 → 3rd). Matches the gap-double quality floor — strong/flush singles
+ * send R2; weaker line singles (0.52–0.67) hold station-to-station.
+ */
+export const SINGLE_SCORES_R2_QUALITY = 0.68;
+
 export function applyBaserunning(
   bases: BasesState,
   play: PlayResult,
   currentOuts = 0,
+  contactQuality?: number,
 ): { bases: BasesState; runs: number; outsRecorded: number } {
   let runs = 0;
   let first = bases.first;
@@ -156,12 +164,24 @@ export function applyBaserunning(
     };
   }
 
-  // Single: trailers move up a base; R3 scores (simplified station-to-station).
+  // Single: R3 always scores. Strong/flush contact can score R2 (R1 → 3rd);
+  // weaker singles stay station-to-station (R2 → 3rd, R1 → 2nd).
   if (play === "single") {
     if (third) runs += 1;
-    third = second;
-    second = first;
-    first = true;
+    const scoresR2 =
+      second &&
+      contactQuality != null &&
+      contactQuality >= SINGLE_SCORES_R2_QUALITY;
+    if (scoresR2) {
+      runs += 1;
+      third = first;
+      second = false;
+      first = true;
+    } else {
+      third = second;
+      second = first;
+      first = true;
+    }
     return { bases: { first, second, third }, runs, outsRecorded: 0 };
   }
 

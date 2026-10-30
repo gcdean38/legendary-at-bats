@@ -395,6 +395,8 @@ export const CONTACT_OUTCOME_GUIDE = {
     double: "else quality ≥ 0.68 → gap double",
     single: "else quality ≥ 0.52 → single",
     line_out: "else (weak liner)",
+    baserunning:
+      "on a single, R2 scores when quality ≥ 0.68 (else holds at 3rd)",
   },
   below_ball: {
     band: "aim below the ball → fly out",
