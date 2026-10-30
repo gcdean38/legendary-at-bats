@@ -656,71 +656,119 @@ export function DailyGame() {
 
   async function shareResult() {
     if (!session || !atBat) return;
-    // Daily mode: only the locked first try is shareable (Wordle-style).
-    if (isDaily && !originalDailyRef.current) return;
-    const text = formatShareSummary({
-      dateKey: session.dateKey,
-      codename: atBat.codename,
-      year: atBat.year,
-      series: atBat.series,
-      gameLabel: atBat.gameLabel,
-      stars: session.stars,
-      finalPlay: session.finalPlay,
-      isDaily,
-    });
+
+    const isBot9Share = isInning && inningSnap?.kind === "bot9";
+    const locked = isDailyDateKey(dateKey)
+      ? getFirstDailyAttempt(dateKey)
+      : null;
+
+    // Daily / rewrite: share the locked first try (Wordle-style), including
+    // after replays. Bot 9 shares the current session.
+    if (!isBot9Share) {
+      if (!originalDailyRef.current && !locked?.firstTryLocked) return;
+    }
+
+    let text: string;
+    let trackMomentId = atBat.id;
+    let trackStars = session.stars;
+    let trackPlay = session.finalPlay;
+
+    if (isBot9Share) {
+      text = formatShareSummary({
+        dateKey: session.dateKey,
+        codename: atBat.codename,
+        year: atBat.year,
+        series: atBat.series,
+        gameLabel: atBat.gameLabel,
+        stars: session.stars,
+        finalPlay: session.finalPlay,
+        isDaily: false,
+      });
+    } else if (locked?.firstTryLocked) {
+      const moment =
+        LEGENDARY_AT_BATS.find((ab) => ab.id === locked.atBatId) ?? atBat;
+      text = formatShareSummary({
+        dateKey: locked.dateKey,
+        codename: moment.codename,
+        year: moment.year,
+        series: moment.series,
+        gameLabel: moment.gameLabel,
+        stars: locked.stars,
+        finalPlay: locked.finalPlay,
+        isDaily: true,
+      });
+      trackMomentId = moment.id;
+      trackStars = locked.stars;
+      trackPlay = locked.finalPlay;
+    } else {
+      text = formatShareSummary({
+        dateKey: session.dateKey,
+        codename: atBat.codename,
+        year: atBat.year,
+        series: atBat.series,
+        gameLabel: atBat.gameLabel,
+        stars: session.stars,
+        finalPlay: session.finalPlay,
+        isDaily: true,
+      });
+    }
+
     // Text only — no title/url fields. Title duplicates the first line of
     // the summary; a separate url makes many targets drop the body.
     const payload: ShareData = { text };
+
+    async function copyText(method: string) {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        if (!ok) throw new Error("execCommand copy failed");
+      }
+      trackEvent("share_result", {
+        method,
+        mode: playMode,
+        moment_id: trackMomentId,
+        stars: trackStars,
+        final_play: trackPlay,
+      });
+      flashShare("Copied!");
+    }
+
     try {
       if (typeof navigator.share === "function") {
-        const canShare =
-          typeof navigator.canShare !== "function" || navigator.canShare(payload);
-        if (canShare) {
+        const nativeOk =
+          typeof navigator.canShare !== "function" ||
+          navigator.canShare(payload);
+        if (nativeOk) {
           await navigator.share(payload);
           trackEvent("share_result", {
             method: "share_sheet",
             mode: playMode,
-            moment_id: atBat.id,
-            stars: session.stars,
-            final_play: session.finalPlay,
+            moment_id: trackMomentId,
+            stars: trackStars,
+            final_play: trackPlay,
           });
           flashShare("Shared!");
           return;
         }
       }
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-        trackEvent("share_result", {
-          method: "clipboard",
-          mode: playMode,
-          moment_id: atBat.id,
-          stars: session.stars,
-          final_play: session.finalPlay,
-        });
-        flashShare("Copied!");
-        return;
-      }
-      setError("Sharing isn’t available in this browser.");
+      await copyText("clipboard");
     } catch (err) {
       // User dismissed the system share sheet — not an error.
       if (err instanceof DOMException && err.name === "AbortError") return;
       try {
-        if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(text);
-          trackEvent("share_result", {
-            method: "clipboard_fallback",
-            mode: playMode,
-            moment_id: atBat.id,
-            stars: session.stars,
-            final_play: session.finalPlay,
-          });
-          flashShare("Copied!");
-          return;
-        }
+        await copyText("clipboard_fallback");
       } catch {
-        /* fall through */
+        setError("Could not share result.");
       }
-      setError("Could not share result.");
     }
   }
 
@@ -745,6 +793,17 @@ export function DailyGame() {
     clearInningState();
     setPhase("catalog");
   }
+
+  // Share the Wordle-style first try whenever it’s locked — including after
+  // replays / rewrite rallies. attemptsTick forces a re-read after save.
+  void attemptsTick;
+  const lockedDailyAttempt = isDailyDateKey(dateKey)
+    ? getFirstDailyAttempt(dateKey)
+    : null;
+  const resultCanShare =
+    (isInning && inningSnap?.kind === "bot9") ||
+    ((isDaily || (isInning && inningSnap?.kind === "rewrite")) &&
+      (originalDailyRef.current || !!lockedDailyAttempt?.firstTryLocked));
 
   return (
     <div className="stadium-bg relative min-h-dvh overflow-hidden">
@@ -904,10 +963,7 @@ export function DailyGame() {
                 : null
             }
             isDaily={isDaily}
-            canShare={
-              (isInning && inningSnap?.kind === "bot9") ||
-              (isDaily && originalDailyRef.current)
-            }
+            canShare={resultCanShare}
             onShare={shareResult}
             onReplay={() => {
               const sourceId = inningSnap?.sourceMomentId;
