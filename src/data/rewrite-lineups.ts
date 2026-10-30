@@ -43,16 +43,16 @@ export const REWRITE_LINEUPS: Record<string, RewriteBatter[]> = {
     { name: "Addison Barger", number: 47, bats: "L" },
     { name: "Nathan Lukes", number: 38, bats: "L" },
   ],
-  /** 2024 WS G5 — Judge last chance, Yankees trailing */
-  "2024-ws5-newyork-99": [
+  /** 2024 WS G5 — Verdugo last out; rewrite continues top of order */
+  "2024-ws5-newyork-12": [
+    { name: "Gleyber Torres", number: 25, bats: "R" },
     { name: "Juan Soto", number: 22, bats: "L" },
+    { name: "Aaron Judge", number: 99, bats: "R" },
     { name: "Jazz Chisholm Jr.", number: 13, bats: "L" },
     { name: "Giancarlo Stanton", number: 27, bats: "R" },
-    { name: "Gleyber Torres", number: 25, bats: "R" },
+    { name: "Anthony Rizzo", number: 48, bats: "L" },
     { name: "Anthony Volpe", number: 11, bats: "R" },
     { name: "Austin Wells", number: 55, bats: "L" },
-    { name: "Alex Verdugo", number: 12, bats: "L" },
-    { name: "Anthony Rizzo", number: 48, bats: "L" },
   ],
   /** 2003 NLCS G6 — Gonzalez, Cubs unraveling at Wrigley */
   "2003-nlcs6-chicago-8": [

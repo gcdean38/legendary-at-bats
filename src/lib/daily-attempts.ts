@@ -68,6 +68,8 @@ const CLEAR_ATTEMPT_MIGRATIONS: { id: string; dateKey: string }[] = [
   { id: "clear-2026-10-23-attempt-carter-three-run", dateKey: "2026-10-23" },
   // Oct 29: Bregman bases fix (R1 only → R1+R2)
   { id: "clear-2026-10-29-attempt-bregman-runners", dateKey: "2026-10-29" },
+  // Oct 30: Judge → Verdugo final out
+  { id: "clear-2026-10-30-attempt-verdugo", dateKey: "2026-10-30" },
 ];
 
 /** Repair + fill defaults. Best can never be below a locked first try. */

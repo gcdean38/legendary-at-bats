@@ -33,7 +33,7 @@ export const DAILY_SCHEDULE: Record<string, string> = {
   "2026-10-27": "2011-ws6-stlouis-23", // David Freese WS G6
   "2026-10-28": "1995-ws6-justice", // David Justice WS G6 clinching HR
   "2026-10-29": "2017-ws5-houston-2", // Alex Bregman WS G5
-  "2026-10-30": "2024-ws5-newyork-99", // Aaron Judge WS G5 K (rewrite)
+  "2026-10-30": "2024-ws5-newyork-12", // Alex Verdugo WS G5 final out (rewrite)
   "2026-10-31": "2001-ws4-newyork-2", // Derek Jeter WS G4 Mr. November
   "2026-11-01": "2025-ws7-toronto-30", // Alejandro Kirk WS G7 GIDP (rewrite)
   "2026-11-02": "2016-ws7-cleveland-1", // Michael Martinez WS G7 — Cubs/Indians rewrite

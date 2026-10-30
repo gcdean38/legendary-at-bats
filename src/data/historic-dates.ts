@@ -13,7 +13,7 @@ export const HISTORIC_DATES: Record<string, string> = {
   "2025-ws7-toronto-30": "2025-11-01", // Kirk WS G7
   "2025-ws3-la-5-18": "2025-10-27", // Freeman 18-inning WS G3
   "2024-ws1-la-5": "2024-10-25", // Freeman WS G1 walk-off
-  "2024-ws5-newyork-99": "2024-10-30", // Judge WS G5
+  "2024-ws5-newyork-12": "2024-10-30", // Verdugo WS G5 final out
   "2024-alcs-cleveland-6": "2024-10-17", // Fry ALCS G3
   "2024-nlwc-newyork-20": "2024-10-03", // Alonso NLWC G3
   "2023-ws1-texas-53": "2023-10-27", // Adolis WS G1
